@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.fluid.title">油品检测结果</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+<style>
+  /* ---- 数据表通用：复用 alert-table-v3，做轻量补充 ---- */
+  .data-table-card { padding: 0; overflow-x: auto; }
+  .data-table-card table { min-width: 1080px; }
+  .fluid-score-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 10px;
+    font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border-line);
+    background: var(--bg-elev);
+  }
+  .fluid-score-pill.tone-normal   { color: var(--status-normal);   border-color: rgba(67,160,71,.45); background: rgba(67,160,71,.10); }
+  .fluid-score-pill.tone-warning  { color: var(--status-warning);  border-color: rgba(251,140,0,.45); background: rgba(251,140,0,.10); }
+  .fluid-score-pill.tone-critical { color: var(--status-critical); border-color: rgba(229,57,53,.45); background: rgba(229,57,53,.10); }
+  .fluid-verdict { color: var(--text-secondary); font-size: 12.5px; line-height: 1.45; }
+  .fluid-id-cell { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-secondary); }
+  /* 严重状态徽章（补 main.css 缺失的 critical 色） */
+  .al-st-tag.al-st-evt-critical {
+    background: rgba(229,57,53,.10); color: #C62828;
+  }
+  .al-st-tag.al-st-evt-critical .al-st-dot {
+    background: #E53935; box-shadow: 0 0 0 2px rgba(229,57,53,.18);
+  }
+  [data-theme="dark"] .al-st-tag.al-st-evt-critical {
+    background: rgba(239,83,80,.18); color: #EF9A9A;
+  }
+</style>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <h1 data-i18n="page.fluid.title">油品检测结果</h1>
+      <div class="breadcrumb">首页 / 数据与管理 / 油品/点检结果 / 油品检测结果</div>
+    </div>
+
+    <!-- 过滤器（与告警/设备清单风格一致） -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <input type="text" id="fr-search" placeholder="搜索采样编号 / 设备编号 / 送检机构…" />
+      </div>
+      <select id="fr-period">
+        <option value="7d">最近 7 天</option>
+        <option value="30d" selected>最近 30 天</option>
+        <option value="90d">最近 90 天</option>
+        <option value="180d">最近 180 天</option>
+        <option value="all">全部周期</option>
+      </select>
+      <select id="fr-status">
+        <option value="" data-i18n="common.allStatus">全部状态</option>
+        <option value="normal">正常</option>
+        <option value="warning">警告</option>
+        <option value="critical">严重</option>
+      </select>
+      <select id="fr-asset">
+        <option value="" data-i18n="common.allModels">全部型号</option>
+        <option value="XE5600">XE5600</option>
+        <option value="XE2000">XE2000</option>
+        <option value="GR5505">GR5505</option>
+        <option value="LW1200KN">LW1200KN</option>
+        <option value="LW1000KN">LW1000KN</option>
+      </select>
+      <select id="fr-area">
+        <option value="" data-i18n="common.allAreas">全部区域</option>
+        <option value="A区">A 区</option>
+        <option value="B区">B 区</option>
+        <option value="C区">C 区</option>
+      </select>
+      <button class="btn btn-sm" id="fr-export" style="margin-left:auto;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        导出
+      </button>
+    </div>
+
+    <!-- 统计摘要（与告警一致） -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+      <div class="kpi-card accent-blue" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">本周期样本</div>
+        <div style="font-size:22px;font-weight:700;color:var(--xcmg-blue);"><span id="fr-kpi-total">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">单</span></div>
+      </div>
+      <div class="kpi-card accent-green" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">正常</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-normal);" id="fr-kpi-normal">0</div>
+      </div>
+      <div class="kpi-card accent-orange" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">警告</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-warning);" id="fr-kpi-warning">0</div>
+      </div>
+      <div class="kpi-card accent-red" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">严重</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-critical);" id="fr-kpi-critical">0</div>
+      </div>
+    </div>
+
+    <!-- 数据表 -->
+    <div class="card data-table-card">
+      <table class="alert-table-v3">
+        <thead>
+          <tr>
+            <th style="width:148px;">采样编号</th>
+            <th style="width:122px;">设备编号</th>
+            <th style="width:96px;">设备型号</th>
+            <th style="width:60px;">区域</th>
+            <th style="width:76px;text-align:right;">工作小时</th>
+            <th style="width:104px;">采样日期</th>
+            <th style="width:120px;">送检机构</th>
+            <th style="width:88px;text-align:center;">发动机油</th>
+            <th style="width:78px;text-align:center;">液压油</th>
+            <th style="width:64px;text-align:center;">状态</th>
+            <th>综合结论</th>
+          </tr>
+        </thead>
+        <tbody id="fr-tbody"></tbody>
+      </table>
+      <div style="padding:10px 16px;border-top:1px solid var(--border-line);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:12.5px;color:var(--text-muted);">显示 <span id="fr-shown">0</span> 条 / 共 <span id="fr-total">0</span> 条记录</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">‹</span>
+          <span class="pg" style="border:1px solid var(--xcmg-blue);background:var(--xcmg-blue);color:#fff;border-radius:4px;padding:2px 8px;font-size:12px;">1</span>
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">›</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+/* ============== 数据准备 ============== */
+var FR_ALL = (XCMG_DATA && XCMG_DATA.fluidAnalysis) ? XCMG_DATA.fluidAnalysis.slice() : [];
+
+// 周期基线：取所有样本中最大 sample_date（避免离线打开后"今天"无数据）
+var FR_BASE_TS = 0;
+for (var i = 0; i < FR_ALL.length; i++) {
+  var t = new Date(FR_ALL[i].sample_date).getTime();
+  if (!isNaN(t) && t > FR_BASE_TS) FR_BASE_TS = t;
+}
+var DAY_MS = 86400000;
+
+/* ============== 工具函数 ============== */
+function statusTag(st) {
+  var map = {
+    normal:   { txt: "正常",  cls: "al-st-evt-closed" },
+    warning:  { txt: "警告",  cls: "al-st-evt-pending" },
+    critical: { txt: "严重",  cls: "al-st-evt-critical" }
+  };
+  var s = map[st] || { txt: "-", cls: "al-st-evt-progress" };
+  return '<span class="al-st-tag ' + s.cls + '"><span class="al-st-dot"></span>' + s.txt + '</span>';
+}
+function scorePill(score) {
+  var cls = score >= 80 ? "tone-normal" : (score >= 65 ? "tone-warning" : "tone-critical");
+  return '<span class="fluid-score-pill ' + cls + '">' + score + '</span>';
+}
+function fmtNum(n) { return (n == null || isNaN(n)) ? "—" : Number(n).toLocaleString(); }
+
+/* ============== 过滤 / 渲染 ============== */
+function frApplyFilter() {
+  var kw      = (document.getElementById("fr-search").value || "").trim().toLowerCase();
+  var period  = document.getElementById("fr-period").value;
+  var status  = document.getElementById("fr-status").value;
+  var asset   = document.getElementById("fr-asset").value;
+  var area    = document.getElementById("fr-area").value;
+
+  var maxDay = period === "7d"   ? 7
+             : period === "30d"  ? 30
+             : period === "90d"  ? 90
+             : period === "180d" ? 180
+             : Infinity;
+
+  var list = FR_ALL.filter(function(it){
+    if (status && it.status     !== status) return false;
+    if (asset  && it.asset_name !== asset)  return false;
+    if (area   && it.area       !== area)   return false;
+    if (maxDay !== Infinity && FR_BASE_TS > 0) {
+      var ts = new Date(it.sample_date).getTime();
+      if (isNaN(ts)) return false;
+      var diffDay = (FR_BASE_TS - ts) / DAY_MS;
+      if (diffDay > maxDay) return false;
+    }
+    if (kw) {
+      var hay = [it.id, it.asset_id, it.asset_name, it.lab, it.area, it.verdict].join(" ").toLowerCase();
+      if (hay.indexOf(kw) === -1) return false;
+    }
+    return true;
+  });
+
+  // 按采样日期倒序
+  list.sort(function(a,b){ return (b.sample_date || "").localeCompare(a.sample_date || ""); });
+
+  // KPI
+  document.getElementById("fr-kpi-total").textContent    = list.length;
+  document.getElementById("fr-kpi-normal").textContent   = list.filter(function(x){return x.status==="normal";}).length;
+  document.getElementById("fr-kpi-warning").textContent  = list.filter(function(x){return x.status==="warning";}).length;
+  document.getElementById("fr-kpi-critical").textContent = list.filter(function(x){return x.status==="critical";}).length;
+
+  // 表格
+  var tbody = document.getElementById("fr-tbody");
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text-muted);">没有匹配的样本</td></tr>';
+  } else {
+    tbody.innerHTML = list.map(function(it){
+      return '<tr>' +
+        '<td><span class="fluid-id-cell">' + it.id + '</span></td>' +
+        '<td>' + it.asset_id + '</td>' +
+        '<td>' + it.asset_name + '</td>' +
+        '<td>' + (it.area || "—") + '</td>' +
+        '<td style="text-align:right;font-variant-numeric:tabular-nums;">' + fmtNum(it.service_meter) + ' h</td>' +
+        '<td>' + it.sample_date + '</td>' +
+        '<td>' + (it.lab || "—") + '</td>' +
+        '<td style="text-align:center;">' + (it.engine_oil ? scorePill(it.engine_oil.score) : "—") + '</td>' +
+        '<td style="text-align:center;">' + (it.hydraulic_oil ? scorePill(it.hydraulic_oil.score) : "—") + '</td>' +
+        '<td style="text-align:center;">' + statusTag(it.status) + '</td>' +
+        '<td><div class="fluid-verdict">' + (it.verdict || "—") + '</div></td>' +
+      '</tr>';
+    }).join("");
+  }
+  document.getElementById("fr-shown").textContent = list.length;
+  document.getElementById("fr-total").textContent = list.length;
+}
+
+/* ============== 初始化 ============== */
+document.addEventListener("DOMContentLoaded", function(){
+  XCMG_NAV.mount("data-fluid");
+  ["fr-period","fr-status","fr-asset","fr-area"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", frApplyFilter);
+  });
+  document.getElementById("fr-search").addEventListener("input", frApplyFilter);
+  document.getElementById("fr-export").addEventListener("click", function(){ alert("（原型）将导出当前过滤结果为 CSV"); });
+  frApplyFilter();
+});
+</script>
+</body>
+</html>

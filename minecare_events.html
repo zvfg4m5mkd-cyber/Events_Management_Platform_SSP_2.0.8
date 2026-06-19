@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.minecare.title">MineCare 事件明细表</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+<style>
+  /* ---- 数据表通用：复用 alert-table-v3 ---- */
+  .data-table-card { padding: 0; overflow-x: auto; }
+  .data-table-card table { min-width: 3400px; }
+  .data-table-card th,
+  .data-table-card td {
+    white-space: nowrap;
+    font-size: 12.5px;
+    padding: 8px 10px;
+  }
+  .data-table-card td.col-wrap { white-space: normal; min-width: 220px; }
+  .mc-id-cell { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-secondary); }
+  .mc-time-cell { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+  .mc-num-cell { text-align: right; font-variant-numeric: tabular-nums; }
+  /* 严重状态徽章（补 main.css 缺失的 critical 色） */
+  .al-st-tag.al-st-evt-critical {
+    background: rgba(229,57,53,.10); color: #C62828;
+  }
+  .al-st-tag.al-st-evt-critical .al-st-dot {
+    background: #E53935; box-shadow: 0 0 0 2px rgba(229,57,53,.18);
+  }
+  [data-theme="dark"] .al-st-tag.al-st-evt-critical {
+    background: rgba(239,83,80,.18); color: #EF9A9A;
+  }
+  /* 验证 / 状态码徽章 */
+  .mc-tag {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:1px 8px; border-radius:10px; font-size:11.5px; font-weight:600;
+    border:1px solid var(--border-line); background: var(--bg-elev);
+    color: var(--text-secondary);
+  }
+  .mc-tag.tone-green { color:#2E7D32; background:rgba(67,160,71,.10); border-color:rgba(67,160,71,.40); }
+  .mc-tag.tone-orange{ color:#EF6C00; background:rgba(251,140,0,.10); border-color:rgba(251,140,0,.40); }
+  .mc-tag.tone-red   { color:#C62828; background:rgba(229,57,53,.10); border-color:rgba(229,57,53,.40); }
+  .mc-tag.tone-grey  { color:#616161; background:rgba(128,128,128,.10); border-color:rgba(128,128,128,.40); }
+</style>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <h1 data-i18n="page.minecare.title">MineCare 事件明细表</h1>
+      <div class="breadcrumb">首页 / 数据与管理 / 报表管理 / MineCare 事件明细表</div>
+    </div>
+    <div style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 14px;">
+      数据源：MineCare / Time Tracking 历史事件、停机原因、维修活动与工单关联记录
+    </div>
+
+    <!-- 过滤器 -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <input type="text" id="mc-search" placeholder="搜索设备/工单/原因/系统/部件…" />
+      </div>
+      <select id="mc-period">
+        <option value="7d">最近 7 天</option>
+        <option value="30d" selected>最近 30 天</option>
+        <option value="90d">最近 90 天</option>
+        <option value="180d">最近 180 天</option>
+        <option value="all">全部周期</option>
+      </select>
+      <select id="mc-status">
+        <option value="" data-i18n="common.allStatus">全部状态</option>
+        <option value="closed">已闭环</option>
+        <option value="in_progress">进行中</option>
+        <option value="pending">待处理</option>
+        <option value="cancelled">已取消</option>
+      </select>
+      <select id="mc-asset-type">
+        <option value="">全部设备类型</option>
+        <option value="挖掘机">挖掘机</option>
+        <option value="装载机">装载机</option>
+        <option value="平地机">平地机</option>
+      </select>
+      <select id="mc-system">
+        <option value="">全部系统</option>
+        <option value="液压系统">液压系统</option>
+        <option value="动力系统">动力系统</option>
+        <option value="冷却系统">冷却系统</option>
+        <option value="电气系统">电气系统</option>
+        <option value="行走系统">行走系统</option>
+      </select>
+      <button class="btn btn-sm btn-primary" id="mc-import" style="margin-left:auto;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        导入
+      </button>
+      <button class="btn btn-sm" id="mc-export">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        导出
+      </button>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+      <div class="kpi-card accent-blue" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">本周期事件</div>
+        <div style="font-size:22px;font-weight:700;color:var(--xcmg-blue);"><span id="mc-kpi-total">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">条</span></div>
+      </div>
+      <div class="kpi-card accent-green" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">已闭环</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-normal);" id="mc-kpi-closed">0</div>
+      </div>
+      <div class="kpi-card accent-orange" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">进行/待处理</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-warning);" id="mc-kpi-open">0</div>
+      </div>
+      <div class="kpi-card accent-red" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">累计停机时长</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-critical);"><span id="mc-kpi-duration">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">h</span></div>
+      </div>
+    </div>
+
+    <!-- 数据表（31 列） -->
+    <div class="card data-table-card">
+      <table class="alert-table-v3">
+        <thead>
+          <tr>
+            <th>开始时间</th>
+            <th>结束时间</th>
+            <th>设备编号</th>
+            <th>设备组/类型</th>
+            <th>调度原因代码</th>
+            <th>调度原因描述</th>
+            <th>维修状态/过程描述</th>
+            <th>主键</th>
+            <th>关联/父级主键</th>
+            <th>地点/位置</th>
+            <th>备注/维修评论</th>
+            <th>维修工单号</th>
+            <th>系统</th>
+            <th>总成/组件组</th>
+            <th>部件/项目</th>
+            <th>问题/故障现象</th>
+            <th>解决方案/维修措施</th>
+            <th>预计完成/释放时间</th>
+            <th>更新时间</th>
+            <th>责任人</th>
+            <th style="text-align:right;">记录状态码</th>
+            <th>状态</th>
+            <th>记录类型</th>
+            <th>统计开始时间</th>
+            <th>统计结束时间</th>
+            <th style="text-align:right;">持续时长 (min)</th>
+            <th>发生记录标识</th>
+            <th>校验/验证</th>
+            <th style="text-align:right;">发生次数</th>
+            <th style="text-align:right;">日</th>
+            <th style="text-align:right;">月</th>
+            <th style="text-align:right;">年</th>
+          </tr>
+        </thead>
+        <tbody id="mc-tbody"></tbody>
+      </table>
+      <div style="padding:10px 16px;border-top:1px solid var(--border-line);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:12.5px;color:var(--text-muted);">显示 <span id="mc-shown">0</span> 条 / 共 <span id="mc-total">0</span> 条记录</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">‹</span>
+          <span class="pg" style="border:1px solid var(--xcmg-blue);background:var(--xcmg-blue);color:#fff;border-radius:4px;padding:2px 8px;font-size:12px;">1</span>
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">›</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+/* ============== 数据准备 ============== */
+var MC_ALL = (XCMG_DATA && XCMG_DATA.minecareEvents) ? XCMG_DATA.minecareEvents.slice() : [];
+
+// 周期基线：取 start_time 最大值
+var MC_BASE_TS = 0;
+for (var i = 0; i < MC_ALL.length; i++) {
+  var t = new Date((MC_ALL[i].start_time || "").replace(" ", "T")).getTime();
+  if (!isNaN(t) && t > MC_BASE_TS) MC_BASE_TS = t;
+}
+var DAY_MS = 86400000;
+
+/* ============== 工具函数 ============== */
+function statusTag(st) {
+  var map = {
+    closed:      { txt: "已闭环",  cls: "al-st-evt-closed" },
+    in_progress: { txt: "进行中",  cls: "al-st-evt-progress" },
+    pending:     { txt: "待处理",  cls: "al-st-evt-pending" },
+    cancelled:   { txt: "已取消",  cls: "al-st-evt-critical" }
+  };
+  var s = map[st] || { txt: "-", cls: "al-st-evt-progress" };
+  return '<span class="al-st-tag ' + s.cls + '"><span class="al-st-dot"></span>' + s.txt + '</span>';
+}
+function validationTag(v) {
+  var map = {
+    VERIFIED: { txt:"已校验", cls:"tone-green" },
+    PENDING:  { txt:"待校验", cls:"tone-orange" },
+    VOIDED:   { txt:"已作废", cls:"tone-grey" }
+  };
+  var s = map[v] || { txt: v || "—", cls: "tone-grey" };
+  return '<span class="mc-tag ' + s.cls + '">' + s.txt + '</span>';
+}
+function statusCodeTag(code) {
+  var cls = "tone-grey";
+  if (code >= 90)      cls = "tone-green";
+  else if (code >= 30) cls = "tone-orange";
+  else if (code === 99) cls = "tone-red";
+  return '<span class="mc-tag ' + cls + '">' + code + '</span>';
+}
+function escapeHtml(s) {
+  if (s == null) return "—";
+  return String(s).replace(/[&<>"']/g, function(c){
+    return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+  });
+}
+function cell(s)   { return "<td>" + (s == null || s === "" ? "—" : escapeHtml(s)) + "</td>"; }
+function wcell(s)  { return '<td class="col-wrap">' + (s == null || s === "" ? "—" : escapeHtml(s)) + "</td>"; }
+function tcell(s)  { return '<td><span class="mc-time-cell">' + (s == null || s === "" ? "—" : escapeHtml(s)) + "</span></td>"; }
+function ncell(n)  { return '<td class="mc-num-cell">' + (n == null || isNaN(n) ? "—" : Number(n).toLocaleString()) + "</td>"; }
+function idcell(s) { return '<td><span class="mc-id-cell">' + (s == null || s === "" ? "—" : escapeHtml(s)) + "</span></td>"; }
+
+/* ============== 过滤 / 渲染 ============== */
+function mcApplyFilter() {
+  var kw     = (document.getElementById("mc-search").value || "").trim().toLowerCase();
+  var period = document.getElementById("mc-period").value;
+  var status = document.getElementById("mc-status").value;
+  var atype  = document.getElementById("mc-asset-type").value;
+  var sys    = document.getElementById("mc-system").value;
+
+  var maxDay = period === "7d"   ? 7
+             : period === "30d"  ? 30
+             : period === "90d"  ? 90
+             : period === "180d" ? 180
+             : Infinity;
+
+  var list = MC_ALL.filter(function(it){
+    if (status && it.status !== status) return false;
+    if (atype && (it.asset_group || "").indexOf(atype) === -1) return false;
+    if (sys   && it.system !== sys) return false;
+    if (maxDay !== Infinity && MC_BASE_TS > 0) {
+      var ts = new Date((it.start_time || "").replace(" ","T")).getTime();
+      if (isNaN(ts)) return false;
+      var diffDay = (MC_BASE_TS - ts) / DAY_MS;
+      if (diffDay > maxDay) return false;
+    }
+    if (kw) {
+      var hay = [it.asset_id, it.asset_group, it.dispatch_code, it.dispatch_desc,
+                 it.work_order, it.system, it.assembly, it.part, it.problem,
+                 it.solution, it.owner, it.location, it.primary_key].join(" ").toLowerCase();
+      if (hay.indexOf(kw) === -1) return false;
+    }
+    return true;
+  });
+
+  // 按开始时间倒序
+  list.sort(function(a,b){ return (b.start_time || "").localeCompare(a.start_time || ""); });
+
+  // KPI
+  document.getElementById("mc-kpi-total").textContent = list.length;
+  document.getElementById("mc-kpi-closed").textContent = list.filter(function(x){ return x.status === "closed"; }).length;
+  document.getElementById("mc-kpi-open").textContent   = list.filter(function(x){ return x.status === "in_progress" || x.status === "pending"; }).length;
+  var sumMin = list.reduce(function(s,x){ return s + (x.duration_min || 0); }, 0);
+  document.getElementById("mc-kpi-duration").textContent = (sumMin / 60).toFixed(1);
+
+  // 表格
+  var tbody = document.getElementById("mc-tbody");
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="32" style="text-align:center;padding:40px;color:var(--text-muted);">没有匹配的事件</td></tr>';
+  } else {
+    tbody.innerHTML = list.map(function(it){
+      return '<tr>' +
+        tcell(it.start_time) +
+        tcell(it.end_time) +
+        cell(it.asset_id) +
+        cell(it.asset_group) +
+        cell(it.dispatch_code) +
+        wcell(it.dispatch_desc) +
+        wcell(it.repair_status) +
+        idcell(it.primary_key) +
+        idcell(it.parent_key) +
+        wcell(it.location) +
+        wcell(it.comment) +
+        idcell(it.work_order) +
+        cell(it.system) +
+        cell(it.assembly) +
+        cell(it.part) +
+        wcell(it.problem) +
+        wcell(it.solution) +
+        tcell(it.est_release_time) +
+        tcell(it.update_time) +
+        cell(it.owner) +
+        '<td style="text-align:right;">' + statusCodeTag(it.status_code) + '</td>' +
+        '<td>' + statusTag(it.status) + '</td>' +
+        cell(it.record_type) +
+        tcell(it.stat_start) +
+        tcell(it.stat_end) +
+        ncell(it.duration_min) +
+        idcell(it.occur_id) +
+        '<td>' + validationTag(it.validation) + '</td>' +
+        ncell(it.occur_count) +
+        ncell(it.day) +
+        ncell(it.month) +
+        ncell(it.year) +
+      '</tr>';
+    }).join("");
+  }
+  document.getElementById("mc-shown").textContent = list.length;
+  document.getElementById("mc-total").textContent = list.length;
+}
+
+/* ============== 初始化 ============== */
+document.addEventListener("DOMContentLoaded", function(){
+  XCMG_NAV.mount("data-rpt-minecare");
+  ["mc-period","mc-status","mc-asset-type","mc-system"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", mcApplyFilter);
+  });
+  document.getElementById("mc-search").addEventListener("input", mcApplyFilter);
+  document.getElementById("mc-export").addEventListener("click", function(){ alert("（原型）将导出当前过滤结果为 CSV"); });
+  document.getElementById("mc-import").addEventListener("click", function(){ alert("（原型）将打开 MineCare 事件批量导入向导：\\n1. 下载导入模板（.xlsx）\\n2. 填写并上传\\n3. 后台校验后回写到事件明细表\\n\\n正式开发时对接后端接口。"); });
+  mcApplyFilter();
+});
+</script>
+</body>
+</html>

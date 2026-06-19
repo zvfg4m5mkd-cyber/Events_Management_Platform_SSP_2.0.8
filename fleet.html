@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.fleet.title">资产中心</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+</head>
+<body>
+
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+
+    <!-- 标题区 -->
+    <div class="page-title">
+      <div>
+        <h1 data-i18n="page.fleet.title">资产中心</h1>
+        <div class="breadcrumb">首页 / 资产中心</div>
+      </div>
+      <div class="row gap-12">
+        <button class="btn btn-sm" onclick="ac_refresh()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+          刷新
+        </button>
+      </div>
+    </div>
+
+    <!-- 顶部筛选条 -->
+    <div class="ac-toolbar">
+      <div class="ac-cell">
+        <select id="ac-site">
+          <option value="">全部矿区</option>
+          <option value="鄂尔多斯煤矿A区">鄂尔多斯煤矿A区</option>
+          <option value="鄂尔多斯煤矿B区">鄂尔多斯煤矿B区</option>
+          <option value="鄂尔多斯煤矿C区">鄂尔多斯煤矿C区</option>
+        </select>
+      </div>
+      <div class="ac-cell">
+        <select id="ac-model">
+          <option value="">全部车型</option>
+          <option value="挖掘机">挖掘机</option>
+          <option value="装载机">装载机</option>
+          <option value="平地机">平地机</option>
+        </select>
+      </div>
+      <div class="ac-cell">
+        <select id="ac-status">
+          <option value="" data-i18n="common.allStatus">全部状态</option>
+          <option value="working">作业中</option>
+          <option value="ready">空载就绪</option>
+          <option value="locked">停机锁定</option>
+          <option value="maintenance">维修中</option>
+        </select>
+      </div>
+      <div class="ac-cell ac-cell-search">
+        <input type="text" id="ac-kw" placeholder="按设备编号 / SN / 型号搜索…">
+      </div>
+      <div class="ac-actions">
+        <button class="ac-btn ac-btn-primary" onclick="ac_apply()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+          查询
+        </button>
+        <button class="ac-btn" onclick="ac_reset()" data-i18n="common.reset">重置</button>
+      </div>
+    </div>
+
+    <!-- 卡片墙 -->
+    <div class="ac-summary">
+      共 <b id="ac-total">0</b> 台设备 · 当前匹配 <b id="ac-matched">0</b> 台
+    </div>
+    <div class="ac-cards" id="ac-cards"></div>
+
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+/* ========================================================
+   资产中心 (Asset Center) - v1.9.9
+   - 简洁卡片墙：大图卡 + 状态药丸 + 三色告警徽章 + 三宫格指标
+   - 数据来源：XCMG_DATA.assets + XCMG_DATA.alerts
+   ======================================================== */
+
+// 设备图片映射（用户上传的型号实拍图）
+var AC_PHOTO = {
+  "XE5600":   "assets/equipment/XE5600.jpg",
+  "XE2000":   "assets/equipment/XE2000.jpg",
+  "GR5505":   "assets/equipment/GR5505.jpg",
+  "LW1200KN": "assets/equipment/LW1200KN.jpg",
+  "LW1000KN": "assets/equipment/LW1000KN.jpg"
+};
+
+// 调度状态 → 标签 + 配色
+var AC_STATUS_MAP = {
+  working:     { text: "作业中",   cls: "ac-st-running" },
+  ready:       { text: "空载就绪", cls: "ac-st-ready"   },
+  locked:      { text: "停机锁定", cls: "ac-st-stop"    },
+  maintenance: { text: "维修中",   cls: "ac-st-maint"   }
+};
+
+// 告警等级 → 徽章 css
+var AC_LEVEL_BADGE = {
+  critical: { text: "严重",   cls: "ac-bg-critical" },
+  warning:  { text: "警告",   cls: "ac-bg-warning"  },
+  info:     { text: "已忽略", cls: "ac-bg-info"     }
+};
+
+document.addEventListener("DOMContentLoaded", function() {
+  XCMG_NAV.mount("fleet");
+  // 回车搜索
+  var kw = document.getElementById("ac-kw");
+  if (kw) {
+    kw.addEventListener("keydown", function(e){ if (e.key === "Enter") ac_apply(); });
+  }
+  ac_render();
+});
+
+function ac_collectAssets() {
+  var assets = (window.XCMG_DATA && XCMG_DATA.assets) || [];
+  var alerts = (window.XCMG_DATA && XCMG_DATA.alerts) || [];
+
+  // 统计每台设备的告警分级数量
+  var counter = {};
+  assets.forEach(function(a){
+    counter[a.id] = { critical:0, warning:0, info:0, active:0 };
+  });
+  alerts.forEach(function(al){
+    var c = counter[al.asset_id];
+    if (!c) return;
+    if (al.status === "active" || al.status === "converted") {
+      c.active++;
+    }
+    if (counter[al.asset_id][al.level] !== undefined) {
+      counter[al.asset_id][al.level]++;
+    }
+  });
+  return assets.map(function(a){
+    return Object.assign({}, a, { _counter: counter[a.id] });
+  });
+}
+
+function ac_render() {
+  var list = ac_collectAssets();
+  document.getElementById("ac-total").textContent = list.length;
+
+  // 应用筛选
+  var siteV  = document.getElementById("ac-site").value;
+  var modelV = document.getElementById("ac-model").value;
+  var stV    = document.getElementById("ac-status").value;
+  var kwV    = (document.getElementById("ac-kw").value || "").trim().toLowerCase();
+
+  var matched = list.filter(function(a){
+    if (siteV  && a.site !== siteV) return false;
+    if (modelV && a.category !== modelV) return false;
+    if (stV    && a.dispatch_status !== stV) return false;
+    if (kwV) {
+      var hay = (a.id + " " + a.name + " " + a.sn + " " + a.model).toLowerCase();
+      if (hay.indexOf(kwV) < 0) return false;
+    }
+    return true;
+  });
+  document.getElementById("ac-matched").textContent = matched.length;
+
+  var box = document.getElementById("ac-cards");
+  if (matched.length === 0) {
+    box.innerHTML = '<div class="ac-empty">没有匹配的设备，请放宽筛选条件或点击「重置」</div>';
+    return;
+  }
+  box.innerHTML = matched.map(ac_cardHtml).join("");
+}
+
+function ac_cardHtml(a) {
+  var st = AC_STATUS_MAP[a.dispatch_status] || { text:"未知", cls:"ac-st-unknown" };
+  var photo = AC_PHOTO[a.model] || "";
+  var c = a._counter || { critical:0, warning:0, info:0, active:0 };
+
+  var photoHtml = photo
+    ? '<img src="'+ photo +'" alt="'+ a.model +'" onerror="this.style.display=\'none\'">'
+    : '<div class="ac-photo-fallback">'+ a.thumb_letter +'</div>';
+
+  // 副标题：编号 | 类型
+  var subtitle = a.id + ' | 矿用' + a.category;
+
+  // 三色徽章
+  var badgesHtml =
+    '<span class="ac-badge ac-bg-critical" title="严重告警"><b>'+ c.critical +'</b><i>严重</i></span>' +
+    '<span class="ac-badge ac-bg-warning"  title="警告告警"><b>'+ c.warning  +'</b><i>警告</i></span>' +
+    '<span class="ac-badge ac-bg-info"     title="信息/已忽略"><b>'+ c.info +'</b><i>已忽略</i></span>';
+
+  // 三宫格：健康分 / 在线状态 / 小时数
+  var onlineLabel = a.net_status === "online" ? "在线" : "离线";
+  var onlineCls   = a.net_status === "online" ? "ac-mn-good" : "ac-mn-bad";
+  var hours = a.uptime_hours.toLocaleString();
+
+  return '<div class="ac-card" onclick="ac_goDetail(\''+ a.id +'\')">' +
+    '<div class="ac-card-photo">' + photoHtml +
+      '<span class="ac-status '+ st.cls +'">'+ st.text +'</span>' +
+    '</div>' +
+    '<div class="ac-card-body">' +
+      '<div class="ac-card-title">' + a.model + '</div>' +
+      '<div class="ac-card-sub">' + subtitle + '</div>' +
+      '<div class="ac-badges">' + badgesHtml + '</div>' +
+      '<div class="ac-metrics">' +
+        '<div class="ac-mn">' +
+          '<div class="ac-mn-num ' + (a.health>=80?'ac-mn-good':(a.health>=60?'ac-mn-warn':'ac-mn-bad')) + '">'+ a.health +'</div>' +
+          '<div class="ac-mn-lab">健康分</div>' +
+        '</div>' +
+        '<div class="ac-mn">' +
+          '<div class="ac-mn-num '+ onlineCls +'">'+ onlineLabel +'</div>' +
+          '<div class="ac-mn-lab">链路</div>' +
+        '</div>' +
+        '<div class="ac-mn">' +
+          '<div class="ac-mn-num">'+ hours +'</div>' +
+          '<div class="ac-mn-lab">运行小时</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ac-card-foot">' +
+        '<a class="ac-link" onclick="event.stopPropagation();ac_goDetail(\''+ a.id +'\')">查看设备详情 →</a>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function ac_apply()   { ac_render(); }
+function ac_reset()   {
+  document.getElementById("ac-site").value   = "";
+  document.getElementById("ac-model").value  = "";
+  document.getElementById("ac-status").value = "";
+  document.getElementById("ac-kw").value     = "";
+  ac_render();
+}
+function ac_refresh() { ac_render(); }
+function ac_goDetail(id) {
+  window.location.href = "asset_detail.html?id=" + encodeURIComponent(id);
+}
+</script>
+</body>
+</html>

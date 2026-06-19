@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.events.title">事件中心</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  // 防主题闪烁：尽早应用保存的主题
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+<style>
+/* ===== 新建事件 modal（v2.0.2 新增） ===== */
+#new-evt-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:998;display:none;}
+#new-evt-mask.is-open{display:block;}
+#new-evt-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:580px;max-width:92vw;max-height:88vh;
+  background:var(--card-bg,#fff);border-radius:8px;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);z-index:999;display:none;
+  flex-direction:column;overflow:hidden;}
+#new-evt-modal.is-open{display:flex;}
+.ne-head{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--border-line,#e5e7eb);}
+.ne-title{font-size:15px;font-weight:600;color:var(--text-primary,#111);}
+.ne-title small{font-size:12px;color:var(--text-muted,#888);margin-left:8px;font-weight:400;}
+.ne-close{font-size:22px;line-height:1;color:#999;cursor:pointer;padding:0 4px;}
+.ne-close:hover{color:#333;}
+.ne-body{padding:14px 18px;overflow-y:auto;flex:1;}
+.ne-row{margin-bottom:12px;}
+.ne-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.ne-lbl{display:block;font-size:12px;color:var(--text-muted,#666);margin-bottom:4px;}
+.ne-req{color:#e53935;margin-left:2px;}
+.ne-inp{width:100%;font-size:13px;padding:7px 9px;border:1px solid var(--border-line,#d1d5db);
+  border-radius:4px;background:var(--card-bg,#fff);color:var(--text-primary,#111);
+  box-sizing:border-box;font-family:inherit;}
+.ne-inp:focus{border-color:var(--xcmg-blue,#1565c0);outline:none;}
+.ne-txt{resize:vertical;min-height:64px;}
+.ne-foot{padding:12px 18px;border-top:1px solid var(--border-line,#e5e7eb);
+  display:flex;align-items:center;justify-content:space-between;background:var(--card-bg,#fafbfc);}
+.ne-tip{font-size:12px;color:#e53935;flex:1;}
+.ne-tip.is-ok{color:#2e7d32;}
+.ne-foot-btns{display:flex;gap:8px;}
+[data-theme="dark"] #new-evt-modal{background:#1f2937;color:#e5e7eb;}
+[data-theme="dark"] .ne-head,[data-theme="dark"] .ne-foot{border-color:#374151;background:#1f2937;}
+[data-theme="dark"] .ne-inp{background:#111827;border-color:#374151;color:#e5e7eb;}
+[data-theme="dark"] .ne-foot{background:#111827;}
+/* 用户创建标记徽章 */
+.user-evt-tag{display:inline-block;font-size:10.5px;padding:1px 6px;border-radius:3px;
+  background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9;margin-left:4px;
+  vertical-align:middle;}
+[data-theme="dark"] .user-evt-tag{background:#1b3a1f;color:#a5d6a7;border-color:#2e7d32;}
+</style>
+</head>
+<body>
+
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <div>
+        <h1 data-i18n="page.events.title">事件中心</h1>
+        <div class="evt-tabs" role="tablist">
+          <a class="evt-tab is-active" id="evt-tab-todo" onclick="setEvtTab('todo')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:5px;"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0z"/><path d="M12 7v5l3 2"/></svg>
+            待办事件
+            <span class="evt-tab-count" id="evt-tab-count-todo">0</span>
+          </a>
+          <a class="evt-tab" id="evt-tab-history" onclick="setEvtTab('history')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:5px;"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+            历史事件
+            <span class="evt-tab-count" id="evt-tab-count-history">0</span>
+          </a>
+        </div>
+      </div>
+      <div class="row gap-12">
+        <button class="btn btn-sm btn-primary" onclick="openNewEvtModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>
+          新建事件
+        </button>
+        <button class="btn btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+          刷新
+        </button>
+        <button class="btn btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          导出
+        </button>
+      </div>
+    </div>
+
+    <!-- 过滤器（风格与告警/设备清单一致） -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <input type="text" id="evt-search" placeholder="搜索告警码 / 描述 / 设备…" />
+      </div>
+      <select id="period-filter">
+        <option value="24h">最近 24 小时</option>
+        <option value="7d" selected>最近 7 天</option>
+        <option value="30d">最近 30 天</option>
+        <option value="all">全部周期</option>
+      </select>
+      <select id="status-filter">
+        <option value="all">全部状态</option>
+        <option value="pending">待处理</option>
+        <option value="processing">处理中</option>
+        <option value="closed">已闭环</option>
+      </select>
+      <select id="model-filter">
+        <option value="" data-i18n="common.allModels">全部型号</option>
+        <option>XE5600</option>
+        <option>XE2000</option>
+        <option>GR5505</option>
+        <option>LW1200KN</option>
+        <option>LW1000KN</option>
+      </select>
+    </div>
+
+    <!-- 统计摘要（风格与告警一致） -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:14px;">
+      <div class="kpi-card accent-red" id="kpi-active-card" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);" id="kpi-label">当前活跃事件</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-critical);" id="kpi-active-wrap"><span id="kpi-active">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">起</span></div>
+      </div>
+      <div class="kpi-card accent-blue" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">周期事件总数</div>
+        <div style="font-size:22px;font-weight:700;color:var(--xcmg-blue);"><span id="kpi-total">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">起</span></div>
+      </div>
+    </div>
+
+    <!-- 事件列表 -->
+    <div class="card" style="padding:0;">
+      <div style="overflow-x:auto;">
+        <table class="alert-table-v3">
+          <thead>
+            <tr>
+              <th style="width:88px;">状态</th>
+              <th style="width:64px;">等级</th>
+              <th style="width:132px;">首次触发时间</th>
+              <th style="width:96px;">持续时长</th>
+              <th style="width:128px;">设备编号</th>
+              <th style="width:96px;">设备型号</th>
+              <th style="width:72px;">告警码</th>
+              <th>告警描述</th>
+              <th style="width:80px;text-align:center;">是否停机</th>
+              <th style="width:96px;">来源</th>
+              <th style="width:200px;text-align:center;">处理</th>
+            </tr>
+          </thead>
+          <tbody id="evt-list-body"></tbody>
+        </table>
+      </div>
+      <div class="rt-evt-foot" style="padding:10px 16px;border-top:1px solid var(--border-line);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:12.5px;color:var(--text-muted);">显示 <span id="evt-shown">0</span> 条 / 共 <span id="evt-total-foot">0</span> 条事件</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">‹</span>
+          <span class="pg" style="border:1px solid var(--xcmg-blue);background:var(--xcmg-blue);color:#fff;border-radius:4px;padding:2px 8px;font-size:12px;">1</span>
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">2</span>
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">›</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Drawer：事件详情 -->
+<div class="evt-drawer-mask" id="drawer-mask" onclick="closeDrawer()"></div>
+<div class="evt-drawer" id="evt-drawer">
+  <div class="ed-head">
+    <div class="ed-title">
+      <h3 id="d-title">事件详情</h3>
+      <div class="ed-meta" id="d-meta"></div>
+    </div>
+    <button class="ed-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="ed-body" id="d-body"></div>
+
+  <!-- 多通道快照面板（默认折叠，点击 ed-foot 中"查看多通道快照"按钮展开） -->
+  <div class="snap-panel" id="snap-panel" style="display:none;">
+    <div class="snap-head">
+      <div>
+        <div class="snap-title-main">触发时刻多通道快照</div>
+        <div class="snap-title-sub" id="snap-sub">—</div>
+      </div>
+      <div class="snap-tools">
+        <span class="snap-tools-lab">时间窗口</span>
+        <div class="snap-window-group" id="snap-window-group">
+          <button class="snap-w-btn" data-min="5"   onclick="snapSetWindow(5)">5 min</button>
+          <button class="snap-w-btn" data-min="15"  onclick="snapSetWindow(15)">15 min</button>
+          <button class="snap-w-btn" data-min="60"  onclick="snapSetWindow(60)">1 h</button>
+          <button class="snap-w-btn" data-min="240" onclick="snapSetWindow(240)">4 h</button>
+        </div>
+        <button class="snap-regen" onclick="snapRegen()" title="重新生成"><span class="snap-regen-ico">↻</span> 重新生成</button>
+        <button class="snap-collapse" onclick="closeSnapPanel()" title="收起">收起</button>
+      </div>
+    </div>
+    <div class="snap-body">
+      <div class="snap-channels" id="snap-channels"></div>
+      <div class="snap-chart-wrap">
+        <svg class="snap-chart" id="snap-chart" viewBox="0 0 880 320" preserveAspectRatio="none"></svg>
+        <div class="snap-axis-x" id="snap-axis-x"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ed-foot">
+    <button class="btn btn-sm" onclick="closeDrawer()" data-i18n="common.close">关闭</button>
+    <button class="btn btn-sm" id="btn-snap-toggle" onclick="toggleSnapPanel()">查看多通道快照 <span class="caret-down"></span></button>
+    <button class="btn btn-sm btn-primary" id="d-action-btn">处理事件</button>
+  </div>
+</div>
+
+<!-- ===== 新建事件 modal（v2.0.2 新增） ===== -->
+<div id="new-evt-mask" onclick="closeNewEvtModal()"></div>
+<div id="new-evt-modal" role="dialog" aria-modal="true" aria-labelledby="ne-modal-title">
+  <div class="ne-head">
+    <div class="ne-title" id="ne-modal-title">新建事件 <small>手动登记一条故障事件</small></div>
+    <span class="ne-close" onclick="closeNewEvtModal()" title="关闭">&times;</span>
+  </div>
+  <div class="ne-body">
+    <div class="ne-row">
+      <label class="ne-lbl">事件标题<span class="ne-req">*</span></label>
+      <input class="ne-inp" id="ne-title" placeholder="如：XE5600 液压系统压力异常" maxlength="60" />
+    </div>
+    <div class="ne-row ne-row-2">
+      <div>
+        <label class="ne-lbl">设备<span class="ne-req">*</span></label>
+        <select class="ne-inp" id="ne-asset">
+          <option value="">请选择设备</option>
+          <option value="XE5600-001|XE5600">XE5600-001 / XE5600 大挖</option>
+          <option value="XE2000-001|XE2000">XE2000-001 / XE2000 大挖</option>
+          <option value="GR5505-001|GR5505">GR5505-001 / GR5505 平地机</option>
+          <option value="LW1200KN-001|LW1200KN">LW1200KN-001 / LW1200KN 装载机</option>
+          <option value="LW1000KN-001|LW1000KN">LW1000KN-001 / LW1000KN 装载机</option>
+        </select>
+      </div>
+      <div>
+        <label class="ne-lbl">故障类别<span class="ne-req">*</span></label>
+        <select class="ne-inp" id="ne-category">
+          <option value="">请选择类别</option>
+          <option>发动机系统</option>
+          <option>液压系统</option>
+          <option>电控系统</option>
+          <option>制动系统</option>
+          <option>冷却系统</option>
+          <option>传动系统</option>
+          <option>润滑系统</option>
+          <option>其他</option>
+        </select>
+      </div>
+    </div>
+    <div class="ne-row ne-row-2">
+      <div>
+        <label class="ne-lbl">事件等级<span class="ne-req">*</span></label>
+        <select class="ne-inp" id="ne-level">
+          <option value="critical">严重 critical</option>
+          <option value="warning" selected>预警 warning</option>
+          <option value="info">提示 info</option>
+        </select>
+      </div>
+      <div>
+        <label class="ne-lbl">优先级</label>
+        <select class="ne-inp" id="ne-priority">
+          <option value="high">高</option>
+          <option value="medium" selected>中</option>
+          <option value="low">低</option>
+        </select>
+      </div>
+    </div>
+    <div class="ne-row">
+      <label class="ne-lbl">事件描述<span class="ne-req">*</span></label>
+      <textarea class="ne-inp ne-txt" id="ne-desc" rows="3" placeholder="详细描述故障现象、发生场景、影响范围..."></textarea>
+    </div>
+    <div class="ne-row ne-row-2">
+      <div>
+        <label class="ne-lbl">责任人</label>
+        <input class="ne-inp" id="ne-handler" placeholder="如：张伟" maxlength="20" />
+      </div>
+      <div>
+        <label class="ne-lbl">是否停机</label>
+        <select class="ne-inp" id="ne-downtime">
+          <option value="no" selected>否</option>
+          <option value="yes">是</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="ne-foot">
+    <span class="ne-tip" id="ne-tip"></span>
+    <div class="ne-foot-btns">
+      <button class="btn btn-sm" onclick="closeNewEvtModal()">取消</button>
+      <button class="btn btn-sm btn-primary" onclick="submitNewEvent()">保存并生成事件</button>
+    </div>
+  </div>
+</div>
+<!-- ===== 新建事件 modal end ===== -->
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/alh_modal.js"></script>
+<script src="js/nav.js"></script>
+<script>
+/* ============== 数据扩展 ============== */
+// 设备类型
+var assetTypeMap = {
+  "XE5600":  "XCMG 矿用电铲 XE5600",
+  "XE2000":  "XCMG 大挖 XE2000",
+  "GR5505":  "XCMG 平地机 GR5505",
+  "LW1200KN":"XCMG 装载机 LW1200KN",
+  "LW1000KN":"XCMG 装载机 LW1000KN"
+};
+// 设备 TAG
+var assetTagMap = {
+  "XE5600-001":  { tag: "XE-001", smu: "19.550,31" },
+  "XE2000-001":  { tag: "XE-503", smu: "27.325,82" },
+  "GR5505-001":  { tag: "GR-101", smu: "21.667,95" },
+  "LW1200KN-001":{ tag: "LW-201", smu: "12.804,17" },
+  "LW1000KN-001":{ tag: "LW-302", smu: "8.941,23"  }
+};
+// 故障码 → MID/CID/FMI 映射
+var faultCodeMap = {
+  "E101": { mid: 36, cid: 110, fmi: 3, fmi_desc: "Voltage above normal or shorted to high source" },
+  "E203": { mid: 87, cid: 378, fmi: 2, fmi_desc: "Data erratic, intermittent or incorrect" },
+  "E204": { mid: 87, cid: 379, fmi: 1, fmi_desc: "Data valid but below normal operational range" }
+};
+
+// alerts 索引：alert_id → alert
+var alertById = {};
+
+// 严重级别 → 数字
+function levelToSevNum(level) { return level === "critical" ? 2 : level === "warning" ? 1 : 0; }
+function sevText(n){ return n===2 ? "严重" : n===1 ? "中等" : "提示"; }
+
+// 事件等级图标
+function levelIcon(lv) {
+  if (lv === "critical") return '<span class="aev-icon is-crit">●</span>';
+  if (lv === "warning")  return '<span class="aev-icon is-warn">●</span>';
+  return '<span class="aev-icon is-info">●</span>';
+}
+
+// 事件类型徽标
+function eventTypeBadge(t) {
+  if (!t) return '<span class="aev-event-type">工单事件</span>';
+  if (t.indexOf("趋势") >= 0) return '<span class="aev-event-type t-trend">' + t + '</span>';
+  if (t.indexOf("智能") >= 0) return '<span class="aev-event-type t-algo">' + t + '</span>';
+  return '<span class="aev-event-type">' + t + '</span>';
+}
+
+// 工单状态徽标
+function workStatusBadge(s) {
+  if (s === "closed") {
+    return '<span class="aev-accept is-closed">已闭环</span>';
+  }
+  if (s === "processing") {
+    return '<span class="aev-accept is-progress">处理中</span>';
+  }
+  return '<span class="aev-accept is-pending">待处理</span>';
+}
+
+// 设备编号 + 类别
+function getAssetCategory(name) {
+  if (!name) return "—";
+  if (name.indexOf("XE") === 0) return "挖掘机";
+  if (name.indexOf("GR") === 0) return "平地机";
+  if (name.indexOf("LW") === 0) return "装载机";
+  return "—";
+}
+
+// 给事件补齐字段
+function enrichEvent(e) {
+  var aRel  = alertById[e.alert_id] || {};
+  var code  = aRel.code || "—";
+  var fc    = faultCodeMap[code] || { mid: 36, cid: 110, fmi: 3, fmi_desc: "Generic fault" };
+  var assetTag = assetTagMap[e.asset_id] || { tag: "—", smu: "—" };
+  return {
+    raw: e,
+    code: code,
+    asset_type: assetTypeMap[e.asset_name] || ("XCMG " + e.asset_name),
+    asset_tag: assetTag.tag,
+    smu: assetTag.smu + " h",
+    mid: fc.mid,
+    cid: fc.cid,
+    fmi: fc.fmi,
+    fmi_desc: fc.fmi_desc,
+    sev_num: levelToSevNum(e.level),
+    // 来自关联告警
+    event_type: aRel.event_type || "工单事件",
+    source: aRel.source || "工单系统",
+    final_value: aRel.final_value || "—",
+    occur: aRel.occurrence_count || 1,
+    desc_en: aRel.desc_en || "",
+    // v1.8.6 新增：用于按告警视图字段展示
+    first_occurred: aRel.first_occurred || e.created_at,
+    last_occurred:  aRel.last_occurred  || e.updated_at,
+    downtime: aRel.downtime || (e.level === "critical" ? "yes" : "no")
+  };
+}
+
+/* ============== 渲染 ============== */
+var allEnriched = [];
+var currentList = [];
+var EVT_TAB = "todo";  // 'todo'=待办 / 'history'=历史
+
+document.addEventListener("DOMContentLoaded", function() {
+  XCMG_NAV.mount("review");
+  // v2.0.2: 合并 localStorage 中用户手动新建的事件 / 告警
+  loadUserData();
+  // 构建告警索引
+  (XCMG_DATA.alerts || []).forEach(function(a){ alertById[a.id] = a; });
+  // 准备数据
+  allEnriched = (XCMG_DATA.events || []).map(enrichEvent);
+  // 监听过滤器
+  ["period-filter","status-filter","model-filter"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", applyFilter);
+  });
+  var __evtSearch = document.getElementById("evt-search");
+  if (__evtSearch) __evtSearch.addEventListener("input", applyFilter);
+  applyFilter();
+});
+
+// tab 切换：待办 / 历史
+function setEvtTab(tab) {
+  if (tab !== "todo" && tab !== "history") return;
+  EVT_TAB = tab;
+  document.getElementById("evt-tab-todo").classList.toggle("is-active", tab === "todo");
+  document.getElementById("evt-tab-history").classList.toggle("is-active", tab === "history");
+  // 切换 tab 时把 status-filter 重置为 all（避免与 tab 过滤冲突）
+  var sf = document.getElementById("status-filter");
+  if (sf) sf.value = "all";
+  applyFilter();
+}
+
+function applyFilter() {
+  var status = document.getElementById("status-filter").value;
+  var model  = document.getElementById("model-filter").value;
+  var period = (document.getElementById("period-filter") || {}).value || "all";
+  var kwEl   = document.getElementById("evt-search");
+  var kw     = kwEl ? kwEl.value.trim().toLowerCase() : "";
+
+  // 计算周期基线：取 events 中最大 created_at 作为"今天"
+  var baseTs = 0;
+  for (var i=0;i<allEnriched.length;i++){
+    var t = new Date(allEnriched[i].raw.created_at).getTime();
+    if (!isNaN(t) && t > baseTs) baseTs = t;
+  }
+  var dayMs = 86400000;
+  var maxDiffDay = period === "24h" ? 1
+                 : period === "7d"  ? 7
+                 : period === "30d" ? 30
+                 : Infinity;
+
+  // 先按 tab 大类过滤（待办 = 非闭环；历史 = 已闭环）
+  var byTab = allEnriched.filter(function(it){
+    if (EVT_TAB === "todo")    return it.raw.status !== "closed";
+    if (EVT_TAB === "history") return it.raw.status === "closed";
+    return true;
+  });
+  currentList = byTab.filter(function(it){
+    if (status !== "all" && it.raw.status !== status) return false;
+    if (model && it.raw.asset_name !== model) return false;
+    // period
+    if (maxDiffDay !== Infinity && baseTs > 0){
+      var ts = new Date(it.raw.created_at).getTime();
+      if (isNaN(ts)) return false;
+      var diffDay = (baseTs - ts) / dayMs;
+      if (diffDay > maxDiffDay) return false;
+    }
+    // 关键字
+    if (kw){
+      var hay = [
+        it.raw.alert_code, it.raw.title, it.raw.description,
+        it.raw.asset_id, it.raw.asset_name
+      ].filter(Boolean).join(" ").toLowerCase();
+      if (hay.indexOf(kw) === -1) return false;
+    }
+    return true;
+  });
+  // 同时更新两个 tab 的角标计数（基于 model 过滤后的全量，便于切换查看）
+  var modelOnly = allEnriched.filter(function(it){
+    if (model && it.raw.asset_name !== model) return false;
+    return true;
+  });
+  document.getElementById("evt-tab-count-todo").textContent =
+    modelOnly.filter(function(it){ return it.raw.status !== "closed"; }).length;
+  document.getElementById("evt-tab-count-history").textContent =
+    modelOnly.filter(function(it){ return it.raw.status === "closed"; }).length;
+  renderKPI();
+  renderTable();
+}
+
+function renderKPI() {
+  var total  = currentList.length;
+  // 第一卡随 tab 切语义：todo→活跃 / history→已闭环
+  var label, num, isClosed;
+  if (EVT_TAB === "history") {
+    label = "本周期已闭环事件"; isClosed = true;
+    num = currentList.filter(function(it){ return it.raw.status === "closed"; }).length;
+  } else {
+    label = "当前活跃事件"; isClosed = false;
+    num = currentList.filter(function(it){ return it.raw.status !== "closed"; }).length;
+  }
+  var lab = document.getElementById("kpi-label");
+  if (lab) lab.textContent = label;
+  document.getElementById("kpi-active").textContent = num;
+  // 颜色与左侧 accent 条同步
+  var card = document.getElementById("kpi-active-card");
+  var wrap = document.getElementById("kpi-active-wrap");
+  if (card) {
+    card.classList.remove("accent-red","accent-green","accent-blue","accent-orange");
+    card.classList.add(isClosed ? "accent-green" : "accent-red");
+  }
+  if (wrap) {
+    wrap.style.color = isClosed ? "var(--status-normal)" : "var(--status-critical)";
+  }
+  document.getElementById("kpi-total").textContent  = total;
+}
+
+function renderTable() {
+  var tbody = document.getElementById("evt-list-body");
+  if (currentList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text-muted);">没有匹配的事件</td></tr>';
+    document.getElementById("evt-shown").textContent = 0;
+    document.getElementById("evt-total-foot").textContent = 0;
+    return;
+  }
+  // 排序：严重→优先，时间倒序
+  var sorted = currentList.slice().sort(function(a,b){
+    if (b.sev_num !== a.sev_num) return b.sev_num - a.sev_num;
+    return b.raw.created_at.localeCompare(a.raw.created_at);
+  });
+
+  tbody.innerHTML = sorted.map(function(it){ return renderEventRow(it); }).join("");
+
+  document.getElementById("evt-shown").textContent      = sorted.length;
+  document.getElementById("evt-total-foot").textContent = sorted.length;
+}
+
+function renderEventRow(it) {
+  var e = it.raw;
+  var rowCls = e.level === "critical" ? " row-crit" : "";
+
+  // 状态 tag（事件三态：pending/processing/closed → 待处理/处理中/已闭环）
+  var stMap = {
+    pending:    { txt:"待处理", cls:"al-st-evt-pending" },
+    processing: { txt:"处理中", cls:"al-st-evt-progress" },
+    closed:     { txt:"已闭环", cls:"al-st-evt-closed" }
+  };
+  var st = stMap[e.status] || stMap.pending;
+  var stHtml = '<span class="al-st-tag ' + st.cls + '"><span class="al-st-dot"></span>' + st.txt + '</span>';
+
+  // 等级 tag
+  var lvMap = { critical:{txt:"严重",cls:"lv-3"}, warning:{txt:"中等",cls:"lv-2"}, info:{txt:"低",cls:"lv-1"} };
+  var lv = lvMap[e.level] || lvMap.info;
+  var lvHtml = '<span class="lv-tag ' + lv.cls + '">' + lv.txt + '</span>';
+
+  // 时间 / 时长
+  var firstAt = '<span class="al-time">' + (it.first_occurred || "—") + '</span>';
+  var dur = fmtDurationE(it.first_occurred, it.last_occurred);
+  var durHtml = '<span class="al-dur' + (e.status !== "closed" ? " is-live" : "") + '">' + dur + '</span>';
+
+  // 设备编号 / 设备型号 / 告警码
+  var assetIdHtml    = '<span class="al-asset-id">' + (e.asset_id || "—") + '</span>';
+  var assetModelHtml = '<span class="al-asset-model">' + (e.asset_name || "—") + '</span>';
+  var codeHtml       = '<span class="al-code">' + (it.code || "—") + '</span>';
+
+  // 告警描述
+  var descHtml =
+    '<div class="al-desc-main">' + (e.title || "") + '</div>' +
+    (e.desc ? '<div class="al-desc-sub"><span class="al-desc-detail">' + e.desc + '</span></div>' : '');
+
+  // 是否停机
+  var dt = it.downtime || "no";
+  var dtHtml = dt === "yes"
+    ? '<span class="al-dt al-dt-yes">是</span>'
+    : '<span class="al-dt al-dt-no">否</span>';
+
+  // 来源
+  var srcHtml = '<span class="al-source">' + (it.source || "—") + '</span>';
+
+  // 处理列（事件场景：查看 / 处理 / 关闭）
+  var canProcess = e.status === "pending";
+  var canClose   = e.status !== "closed";
+  var actHtml =
+    '<div class="al-actions" onclick="event.stopPropagation();">' +
+      '<button class="al-act al-act-view" onclick="event.stopPropagation();openEventOrAlert(\'' + e.id + '\')">查看</button>' +
+      '<button class="al-act al-act-conv" ' + (canProcess?'':'disabled') + ' onclick="event.stopPropagation();handleEventProcess(\'' + e.id + '\')">处理</button>' +
+      '<button class="al-act al-act-ign"  ' + (canClose?'':'disabled')   + ' onclick="event.stopPropagation();handleEventClose(\'' + e.id + '\')" data-i18n="common.close">关闭</button>' +
+    '</div>';
+
+  return '<tr class="al-row' + rowCls + '" onclick="openEventOrAlert(\'' + e.id + '\')">' +
+    '<td>' + stHtml + '</td>' +
+    '<td>' + lvHtml + '</td>' +
+    '<td>' + firstAt + '</td>' +
+    '<td>' + durHtml + '</td>' +
+    '<td>' + assetIdHtml + '</td>' +
+    '<td>' + assetModelHtml + '</td>' +
+    '<td>' + codeHtml + '</td>' +
+    '<td style="min-width:240px;">' + descHtml + '</td>' +
+    '<td style="text-align:center;">' + dtHtml + '</td>' +
+    '<td>' + srcHtml + '</td>' +
+    '<td style="text-align:center;">' + actHtml + '</td>' +
+  '</tr>';
+}
+
+/* —— 时间解析 + 持续时长 —— */
+function parseDTE(s) {
+  if (!s) return null;
+  var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+  if (!m) return null;
+  return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
+}
+function fmtDurationE(start, end) {
+  var s = parseDTE(start), ed = parseDTE(end);
+  if (!s || !ed) return "—";
+  var diff = Math.max(0, ed - s);
+  var min = Math.floor(diff / 60000);
+  if (min < 60) return min + " 分钟";
+  var h = Math.floor(min / 60);
+  var rmin = min % 60;
+  if (h < 24) return h + " 小时" + (rmin > 0 ? " " + rmin + " 分" : "");
+  var d = Math.floor(h / 24);
+  var rh = h % 24;
+  return d + " 天" + (rh > 0 ? " " + rh + " 小时" : "");
+}
+
+/* —— 事件处理动作 —— */
+function handleEventProcess(eventId) {
+  var e = (XCMG_DATA.events || []).find(function(x){ return x.id === eventId; });
+  if (!e) return;
+  if (!confirm("确认开始处理事件「" + e.title + "」？")) return;
+  e.status = "processing";
+  e.updated_at = new Date().toISOString().slice(0,16).replace("T", " ");
+  applyFilter();
+}
+function handleEventClose(eventId) {
+  var e = (XCMG_DATA.events || []).find(function(x){ return x.id === eventId; });
+  if (!e) return;
+  if (!confirm("确认关闭事件「" + e.title + "」？")) return;
+  e.status = "closed";
+  e.updated_at = new Date().toISOString().slice(0,16).replace("T", " ");
+  applyFilter();
+}
+
+/* ============== Drawer 事件详情 ============== */
+/* v1.9.5: 待办事件查看详情时，如果是告警（带 alert_id），优先弹出告警处理弹窗（alh-modal） */
+function openEventOrAlert(eventId) {
+  var e = (XCMG_DATA.events || []).find(function(x){ return x.id === eventId; });
+  if (e && e.alert_id && typeof window.openAlertDrawer === "function") {
+    window.openAlertDrawer(e.alert_id);
+    return;
+  }
+  openDrawer(eventId); // 兜底：旧版事件抽屉
+}
+
+function openDrawer(eventId) {
+  var it = allEnriched.find(function(x){ return x.raw.id === eventId; });
+  if (!it) return;
+  var e = it.raw;
+
+  // v1.9.10: 暂存事件上下文供多通道快照使用
+  var drw = document.getElementById("evt-drawer");
+  drw.dataset.eventId   = e.id;
+  drw.dataset.assetName = e.asset_name || "";
+  drw.dataset.triggerAt = it.first_occurred || it.last_occurred || e.created_at || "";
+
+  // 已开快照面板时跟随刷新
+  var snapPanel = document.getElementById("snap-panel");
+  if (snapPanel && snapPanel.style.display === "block") {
+    snapRender();
+  }
+
+  document.getElementById("d-title").textContent = e.title;
+  document.getElementById("d-meta").textContent  = e.id + " · " + it.code + " · 关联告警 " + (e.alert_id || "-");
+
+  var statusBadge = workStatusBadge(e.status);
+  var sevTone = it.sev_num === 2 ? "tone-critical" : it.sev_num === 1 ? "tone-warning" : "";
+
+  var body = '';
+
+  // 描述
+  body += '<div class="ed-section"><div class="ed-desc">' + e.desc + '</div></div>';
+
+  // 关键信息
+  body += '<div class="ed-section">';
+  body += '<h4><span class="ed-icon">📌</span>事件关键信息</h4>';
+  body += '<div class="ed-fields">';
+  body += '<div class="ed-field"><span class="ed-field-label">设备型号</span><span class="ed-field-val">' + it.asset_type + '</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">设备 TAG</span><span class="ed-field-val mono">' + it.asset_tag + '</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">触发时间</span><span class="ed-field-val mono">' + e.created_at + '</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">累计工时</span><span class="ed-field-val mono">' + it.smu + '</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">告警代码</span><span class="ed-field-val mono ' + sevTone + '">' + it.code + '</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">事件类型</span><span class="ed-field-val">' + eventTypeBadge(it.event_type) + '</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">源接口</span><span class="ed-field-val">' + it.source + '</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">触发频次</span><span class="ed-field-val">' + it.occur + ' 次</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">严重级别</span><span class="ed-field-val ' + sevTone + '">' + sevText(it.sev_num) + ' (Lv ' + (it.sev_num+1) + ')</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">事件状态</span><span class="ed-field-val">' + statusBadge + '</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">处理人员</span><span class="ed-field-val">' + (e.handler || "未指派") + '</span></div>';
+  body += '<div class="ed-field"><span class="ed-field-label">事件分类</span><span class="ed-field-val">' + (e.category || "-") + '</span></div>';
+  body += '<div class="ed-field" style="grid-column:span 2;"><span class="ed-field-label">最终反馈值</span><span class="ed-field-val mono ' + sevTone + '">' + it.final_value + '</span></div>';
+  body += '</div></div>';
+
+  // 处理时间线
+  body += '<div class="ed-section">';
+  body += '<h4><span class="ed-icon">🕐</span>处理过程</h4>';
+  body += '<div class="ed-timeline">';
+  (e.steps || []).forEach(function(step){
+    var isSys = step.actor === "系统";
+    body += '<div class="ed-tl-item">';
+    body += '<div class="ed-tl-dot ' + (isSys ? "is-system" : "") + '"></div>';
+    body += '<div class="ed-tl-time">' + step.time + '</div>';
+    body += '<div class="ed-tl-actor">' + step.actor + '<span class="actor-action"> · ' + step.action + '</span></div>';
+    if (step.note) body += '<div class="ed-tl-note">' + step.note + '</div>';
+    body += '</div>';
+  });
+  body += '</div></div>';
+
+  // 处理意见
+  if (e.handling_opinion) {
+    body += '<div class="ed-section">';
+    body += '<h4><span class="ed-icon">💬</span>当前处理意见</h4>';
+    body += '<div class="ed-opinion">' + e.handling_opinion + '</div>';
+    body += '</div>';
+  }
+
+  // 知识库链接
+  body += '<div class="ed-section">';
+  body += '<h4><span class="ed-icon">📚</span>诊断知识库</h4>';
+  var kbCount = ((XCMG_DATA.knowledgeBase || {})[it.code] || []).length;
+  body += '<a class="ed-kb-link" onclick="goKB(\'' + it.code + '\')">';
+  body += '<span>查看故障码 <strong>' + it.code + '</strong> 的诊断处理与维修步骤';
+  if (kbCount > 0) body += ' · 共 <strong>' + kbCount + '</strong> 篇';
+  body += '</span><span class="kb-arrow">→</span></a>';
+  body += '</div>';
+
+  document.getElementById("d-body").innerHTML = body;
+
+  var actionBtn = document.getElementById("d-action-btn");
+  if (e.status === "closed")        actionBtn.textContent = "查看处理记录";
+  else if (e.status === "processing") actionBtn.textContent = "更新处理进度";
+  else                                actionBtn.textContent = "开始处理事件";
+
+  document.getElementById("evt-drawer").classList.add("open");
+  document.getElementById("drawer-mask").classList.add("show");
+}
+
+function closeDrawer() {
+  document.getElementById("evt-drawer").classList.remove("open");
+  document.getElementById("drawer-mask").classList.remove("show");
+  // v1.9.5: 同步关闭告警处理弹窗（共用同一遮罩层）
+  var alh = document.getElementById("alh-modal");
+  if (alh) alh.classList.remove("show");
+  // v1.9.10: 同步收起多通道快照面板
+  if (typeof closeSnapPanel === "function") closeSnapPanel();
+  document.body.style.overflow = "";
+}
+
+function goKB(code) {
+  window.location.href = "placeholder.html?m=诊断知识库 · " + code;
+}
+
+/* ============================================================
+ * v1.9.10 多通道快照面板（事件抽屉版）
+ * 上下文从 evt-drawer.dataset 取
+ * ============================================================ */
+var SNAP_CTX = { eventId: "", assetName: "", triggerAt: "", windowMin: 5 };
+var SNAP_CHANNELS = [
+  { key: "ch1", name: "自动缓速器状态",                color: "#FFB300", unit: "%",   base: 60, amp: 25, seed: 1, on: true },
+  { key: "ch2", name: "回转泵腔粒子浓度",              color: "#43A047", unit: "ppm", base: 22, amp: 14, seed: 2, on: true },
+  { key: "ch3", name: "1号空气滤清器限制压力",         color: "#FB8C00", unit: "kPa", base: 4.2, amp: 1.6, seed: 3, on: true },
+  { key: "ch4", name: "2号空气滤清器限制压力",         color: "#4FA8FF", unit: "kPa", base: 3.6, amp: 1.4, seed: 4, on: true },
+  { key: "ch5", name: "发动机排气歧管瞬时温差",        color: "#E53935", unit: "°C",  base: 48, amp: 20, seed: 5, on: true },
+  { key: "ch6", name: "液压主泵出口压力",              color: "#9C27B0", unit: "MPa", base: 28, amp: 6,  seed: 6, on: false },
+  { key: "ch7", name: "冷却液出水温度",                color: "#00ACC1", unit: "°C",  base: 92, amp: 8,  seed: 7, on: false }
+];
+
+function toggleSnapPanel() {
+  var p = document.getElementById("snap-panel");
+  if (!p) return;
+  if (p.style.display === "none" || !p.style.display) openSnapPanel();
+  else closeSnapPanel();
+}
+
+function openSnapPanel() {
+  var drw = document.getElementById("evt-drawer");
+  SNAP_CTX.eventId   = drw.dataset.eventId   || "";
+  SNAP_CTX.assetName = drw.dataset.assetName || "—";
+  SNAP_CTX.triggerAt = drw.dataset.triggerAt || "";
+  document.getElementById("snap-panel").style.display = "block";
+  document.getElementById("btn-snap-toggle").innerHTML = '收起多通道快照 <span class="caret-up"></span>';
+  // 默认按钮高亮
+  document.querySelectorAll(".snap-w-btn").forEach(function(b){
+    b.classList.toggle("is-active", String(b.dataset.min) === String(SNAP_CTX.windowMin || 5));
+  });
+  setTimeout(function(){
+    var p = document.getElementById("snap-panel");
+    p.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 30);
+  snapRender();
+}
+
+function closeSnapPanel() {
+  var p = document.getElementById("snap-panel");
+  if (p) p.style.display = "none";
+  var btn = document.getElementById("btn-snap-toggle");
+  if (btn) btn.innerHTML = '查看多通道快照 <span class="caret-down"></span>';
+}
+
+function snapSetWindow(min) {
+  SNAP_CTX.windowMin = min;
+  document.querySelectorAll(".snap-w-btn").forEach(function(b){
+    b.classList.toggle("is-active", String(b.dataset.min) === String(min));
+  });
+  snapRender();
+}
+
+function snapRegen() {
+  SNAP_CHANNELS.forEach(function(c){ c.seed = (c.seed * 7 + 13) % 997; });
+  snapRender();
+}
+
+function snapToggleChannel(key) {
+  var c = SNAP_CHANNELS.find(function(x){ return x.key === key; });
+  if (c) c.on = !c.on;
+  snapRender();
+}
+
+function snapRender() {
+  var win = SNAP_CTX.windowMin || 5;
+  var subEl = document.getElementById("snap-sub");
+  if (subEl) subEl.textContent =
+    win + " 分钟窗口 · 触发时刻 " + (SNAP_CTX.triggerAt || "—") + " · " + (SNAP_CTX.assetName || "");
+
+  // 渲染左侧通道列表
+  var chHtml = SNAP_CHANNELS.map(function(c){
+    return '<div class="snap-ch ' + (c.on ? 'is-on' : '') + '" onclick="snapToggleChannel(\'' + c.key + '\')">' +
+      '<span class="snap-ch-box">' + (c.on ? '<span class="snap-ch-tick">✓</span>' : '') + '</span>' +
+      '<span class="snap-ch-dot" style="background:' + c.color + ';"></span>' +
+      '<span class="snap-ch-name">' + c.name + '</span>' +
+      '<span class="snap-ch-unit">' + c.unit + '</span>' +
+    '</div>';
+  }).join("");
+  document.getElementById("snap-channels").innerHTML = chHtml;
+
+  // X 轴时间刻度
+  var axisLabels = snapAxisLabels(SNAP_CTX.triggerAt, win);
+  document.getElementById("snap-axis-x").innerHTML = axisLabels.map(function(t){
+    return '<span class="snap-axis-x-tick">' + t + '</span>';
+  }).join("");
+
+  drawSnapChart();
+}
+
+function snapAxisLabels(triggerAt, win) {
+  var trig = null;
+  if (triggerAt) {
+    // 兼容 "YYYY-MM-DD HH:MM:SS" / "YYYY-MM-DD HH:MM" / ISO
+    var s = String(triggerAt).replace(' ', 'T');
+    trig = new Date(s);
+    if (isNaN(trig.getTime())) trig = null;
+  }
+  if (!trig) trig = new Date();
+
+  var halfMs = win * 60 * 1000 / 2;
+  var startMs = trig.getTime() - halfMs;
+  var stepMs = (win * 60 * 1000) / 4;
+  var pad2 = function(n){ return n < 10 ? "0" + n : "" + n; };
+  var fmt = function(d){ return pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds()); };
+  var arr = [];
+  for (var i = 0; i <= 4; i++) arr.push(fmt(new Date(startMs + i * stepMs)));
+  return arr;
+}
+
+function snapNoise(seed, x) {
+  var v = Math.sin(seed * 12.9898 + x * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+function drawSnapChart() {
+  var W = 880, H = 320;
+  var padL = 8, padR = 8, padT = 14, padB = 14;
+  var innerW = W - padL - padR;
+  var innerH = H - padT - padB;
+  var N = 80;
+
+  var svg = '';
+  for (var gi = 0; gi <= 6; gi++) {
+    var gy = padT + (innerH * gi / 6);
+    svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W - padR) + '" y2="' + gy + '" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
+  }
+  for (var gj = 0; gj <= 8; gj++) {
+    var gx = padL + (innerW * gj / 8);
+    svg += '<line x1="' + gx + '" y1="' + padT + '" x2="' + gx + '" y2="' + (H - padB) + '" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>';
+  }
+
+  var trigX = padL + innerW / 2;
+  svg += '<line x1="' + trigX + '" y1="' + padT + '" x2="' + trigX + '" y2="' + (H - padB) + '" stroke="rgba(229,57,53,0.7)" stroke-width="1.4" stroke-dasharray="4,3"/>';
+  svg += '<text x="' + (trigX + 4) + '" y="' + (padT + 12) + '" fill="#E53935" font-size="11" font-family="ui-monospace,monospace">触发时刻</text>';
+
+  SNAP_CHANNELS.forEach(function(c){
+    if (!c.on) return;
+    var pts = [];
+    for (var i = 0; i < N; i++) {
+      var t = i / (N - 1);
+      var trend = c.base + c.amp * Math.sin(t * 6 + c.seed * 0.7);
+      var noise = (snapNoise(c.seed, i) - 0.5) * c.amp * 0.4;
+      var spike = Math.exp(-Math.pow((t - 0.5) * 6, 2)) * c.amp * 0.55 * (c.key === "ch5" ? 1.2 : 0.7);
+      var v = trend + noise + spike;
+      var ymin = c.base - c.amp * 1.8;
+      var ymax = c.base + c.amp * 1.8;
+      var ny = (v - ymin) / (ymax - ymin);
+      ny = Math.max(0.05, Math.min(0.95, ny));
+      var x = padL + innerW * t;
+      var y = padT + innerH * (1 - ny);
+      pts.push([x, y]);
+    }
+    var d = "M" + pts[0][0].toFixed(1) + "," + pts[0][1].toFixed(1);
+    for (var k = 0; k < pts.length - 1; k++) {
+      var p0 = pts[k === 0 ? 0 : k - 1];
+      var p1 = pts[k];
+      var p2 = pts[k + 1];
+      var p3 = pts[k + 2 < pts.length ? k + 2 : pts.length - 1];
+      var c1x = p1[0] + (p2[0] - p0[0]) / 6;
+      var c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      var c2x = p2[0] - (p3[0] - p1[0]) / 6;
+      var c2y = p2[1] - (p3[1] - p1[1]) / 6;
+      d += " C" + c1x.toFixed(1) + "," + c1y.toFixed(1) +
+           " "  + c2x.toFixed(1) + "," + c2y.toFixed(1) +
+           " "  + p2[0].toFixed(1) + "," + p2[1].toFixed(1);
+    }
+    svg += '<path d="' + d + '" fill="none" stroke="' + c.color + '" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" opacity="0.92"/>';
+  });
+
+  document.getElementById("snap-chart").innerHTML = svg;
+}
+
+document.addEventListener("keydown", function(e){
+  if (e.key === "Escape") {
+    if (document.getElementById("new-evt-modal").classList.contains("is-open")) {
+      closeNewEvtModal();
+    } else {
+      closeDrawer();
+    }
+  }
+});
+
+/* ============== 新建事件 v2.0.2 ============== */
+var USER_EVT_KEY = "xcmg_user_events_v1";
+var USER_ALM_KEY = "xcmg_user_alerts_v1";
+
+// 启动时合并 localStorage 用户数据（用户事件 / 用户告警）
+function loadUserData() {
+  try {
+    var ues = JSON.parse(localStorage.getItem(USER_EVT_KEY) || "[]");
+    var uas = JSON.parse(localStorage.getItem(USER_ALM_KEY) || "[]");
+    if (!window.XCMG_DATA) return;
+
+    // v2.0.2.1 hotfix：以 mock 原始事件最大 created_at 为锚点，
+    // 把所有 user_created 事件/告警的时间戳重新对齐到锚点之后，
+    // 避免历史脏数据(真实当前时间) 把"最近 7 天"基线拉远导致 mock 事件被全部过滤掉。
+    function _fmt(d){
+      return d.getFullYear() + "-" + _ne_pad2(d.getMonth()+1) + "-" + _ne_pad2(d.getDate())
+        + " " + _ne_pad2(d.getHours()) + ":" + _ne_pad2(d.getMinutes());
+    }
+    var mockMaxTs = 0;
+    (XCMG_DATA.events || []).forEach(function(e){
+      if (e.user_created) return;
+      var t = new Date(e.created_at).getTime();
+      if (!isNaN(t) && t > mockMaxTs) mockMaxTs = t;
+    });
+    if (mockMaxTs > 0) {
+      // 让用户事件按其原本顺序排在 mock 数据之后，每条间隔 1 分钟
+      // ues 顺序：localStorage 中越靠前 = 越新
+      // 为了保持"最新事件用最大时间戳"，我们倒序赋时间：第 0 条得到最大时间
+      var n = ues.length;
+      for (var i=0; i<n; i++) {
+        var anchor = new Date(mockMaxTs + (n - i) * 60000);
+        var s = _fmt(anchor);
+        ues[i].created_at = s;
+        ues[i].updated_at = s;
+        if (Array.isArray(ues[i].steps) && ues[i].steps[0]) ues[i].steps[0].time = s;
+        // 同步对应虚拟告警的时间
+        var almId = ues[i].alert_id;
+        for (var k=0; k<uas.length; k++) {
+          if (uas[k].id === almId) {
+            uas[k].first_occurred = s;
+            uas[k].last_occurred = s;
+            break;
+          }
+        }
+      }
+      // 写回，避免下次刷新再做一次校正（可选：保持幂等）
+      try {
+        localStorage.setItem(USER_EVT_KEY, JSON.stringify(ues));
+        localStorage.setItem(USER_ALM_KEY, JSON.stringify(uas));
+      } catch(e2) { /* 忽略写回失败 */ }
+    }
+
+    if (uas.length) {
+      XCMG_DATA.alerts = uas.concat(XCMG_DATA.alerts || []);
+    }
+    if (ues.length) {
+      XCMG_DATA.events = ues.concat(XCMG_DATA.events || []);
+    }
+  } catch(e) { console.warn("[loadUserData]", e); }
+}
+
+function _ne_pad2(n){ return n<10 ? "0"+n : ""+n; }
+
+// v2.0.2.1 hotfix：新事件 created_at 锚定到「现有事件最新时间 +1 分钟」，
+// 避免用真实当前时间(2026)把 applyFilter 的 baseTs 拉远，导致 mock 事件(2025)被"最近 7 天"过滤掉。
+function _ne_buildNowStr() {
+  var maxTs = 0;
+  if (window.XCMG_DATA && XCMG_DATA.events) {
+    XCMG_DATA.events.forEach(function(e){
+      var t = new Date(e.created_at).getTime();
+      if (!isNaN(t) && t > maxTs) maxTs = t;
+    });
+  }
+  var d = maxTs > 0 ? new Date(maxTs + 60000) : new Date();
+  return d.getFullYear() + "-" + _ne_pad2(d.getMonth()+1) + "-" + _ne_pad2(d.getDate())
+       + " " + _ne_pad2(d.getHours()) + ":" + _ne_pad2(d.getMinutes());
+}
+
+function openNewEvtModal() {
+  // 重置表单
+  ["ne-title","ne-desc","ne-handler"].forEach(function(id){ var el=document.getElementById(id); if (el) el.value=""; });
+  document.getElementById("ne-asset").value = "";
+  document.getElementById("ne-category").value = "";
+  document.getElementById("ne-level").value = "warning";
+  document.getElementById("ne-priority").value = "medium";
+  document.getElementById("ne-downtime").value = "no";
+  var tip = document.getElementById("ne-tip");
+  tip.textContent = ""; tip.classList.remove("is-ok");
+  document.getElementById("new-evt-mask").classList.add("is-open");
+  document.getElementById("new-evt-modal").classList.add("is-open");
+  setTimeout(function(){ var t=document.getElementById("ne-title"); if(t) t.focus(); }, 80);
+}
+
+function closeNewEvtModal() {
+  document.getElementById("new-evt-mask").classList.remove("is-open");
+  document.getElementById("new-evt-modal").classList.remove("is-open");
+}
+
+function submitNewEvent() {
+  var title    = (document.getElementById("ne-title").value || "").trim();
+  var assetVal = document.getElementById("ne-asset").value;
+  var category = document.getElementById("ne-category").value;
+  var level    = document.getElementById("ne-level").value;
+  var priority = document.getElementById("ne-priority").value;
+  var desc     = (document.getElementById("ne-desc").value || "").trim();
+  var handler  = (document.getElementById("ne-handler").value || "").trim() || "—";
+  var downtime = document.getElementById("ne-downtime").value;
+  var tip      = document.getElementById("ne-tip");
+  tip.classList.remove("is-ok");
+
+  if (!title)    { tip.textContent = "请填写事件标题"; return; }
+  if (!assetVal) { tip.textContent = "请选择设备";     return; }
+  if (!category) { tip.textContent = "请选择故障类别"; return; }
+  if (!desc)     { tip.textContent = "请填写事件描述"; return; }
+
+  var parts = assetVal.split("|");
+  var asset_id = parts[0], asset_name = parts[1];
+
+  var now = new Date();
+  var ts = now.getFullYear() + _ne_pad2(now.getMonth()+1) + _ne_pad2(now.getDate())
+         + _ne_pad2(now.getHours()) + _ne_pad2(now.getMinutes()) + _ne_pad2(now.getSeconds());
+  // 演示锚点：created_at / updated_at 用 mock 数据最新时间 +1 分钟，避免周期过滤误伤旧事件
+  var nowStr = _ne_buildNowStr();
+
+  var evtId = "EVT-USR-" + ts;
+  var almId = "ALM-USR-" + ts;
+
+  // 构造虚拟告警，使新事件能走 alh-modal 流程生成工单
+  var newAlert = {
+    id: almId, code: "USR", title: title,
+    desc: desc, level: level, asset_id: asset_id, asset_name: asset_name,
+    first_occurred: nowStr, last_occurred: nowStr, occurrence_count: 1,
+    status: "active", downtime: downtime, trend: [],
+    fault_code: "USR", category_cn: level === "critical" ? "故障" : (level === "warning" ? "警告" : "提示"),
+    desc_en: title, event_type: "手动登记事件",
+    operator: "--", accept_status: "pending", source: "人工登记",
+    final_value: "—", event_type_id: ts,
+    area: "—", oem_protocol: "—", data_source: "用户手动创建",
+    snapshot_status: "未触发捕获",
+    root_cause: "由现场人员手动登记，原因待诊断分析。",
+    trouble_guide: "请按现场情况进行排查，并在事件详情中补充诊断结果。",
+    recommended_action: "结合事件描述与设备状态，安排责任人现场处置并生成工单。",
+    driver: "—", beacon: "—", last_dispatch: "—", carga: "—",
+    gps_coord: "—", next_flow: "—",
+    user_created: true
+  };
+
+  // 构造事件
+  var newEvent = {
+    id: evtId, alert_id: almId, title: title,
+    desc: desc, level: level, asset_id: asset_id, asset_name: asset_name,
+    status: "pending", priority: priority,
+    created_at: nowStr, updated_at: nowStr,
+    handler: handler, category: category,
+    steps: [
+      { time: nowStr,
+        actor: handler !== "—" ? handler : "运维人员",
+        action: "手动登记事件",
+        note: "由用户在事件中心手动新建，等待处理。" }
+    ],
+    handling_opinion: "",
+    user_created: true
+  };
+
+  // 写 localStorage（合并，最新放最前面）
+  try {
+    var ues = JSON.parse(localStorage.getItem(USER_EVT_KEY) || "[]");
+    var uas = JSON.parse(localStorage.getItem(USER_ALM_KEY) || "[]");
+    ues.unshift(newEvent);
+    uas.unshift(newAlert);
+    localStorage.setItem(USER_EVT_KEY, JSON.stringify(ues));
+    localStorage.setItem(USER_ALM_KEY, JSON.stringify(uas));
+  } catch(e) { console.warn("[submitNewEvent] localStorage", e); }
+
+  // 同步到内存
+  if (window.XCMG_DATA) {
+    XCMG_DATA.events = XCMG_DATA.events || [];
+    XCMG_DATA.alerts = XCMG_DATA.alerts || [];
+    XCMG_DATA.events.unshift(newEvent);
+    XCMG_DATA.alerts.unshift(newAlert);
+    alertById[newAlert.id] = newAlert;
+  }
+
+  // 重新构建并渲染
+  allEnriched = (XCMG_DATA.events || []).map(enrichEvent);
+  // 切回待办 tab，让用户立即看到刚创建的事件
+  if (typeof setEvtTab === "function") setEvtTab("todo");
+  else applyFilter();
+
+  // 反馈
+  tip.textContent = "事件 " + evtId + " 已创建，可在列表中点击「查看」生成工单";
+  tip.classList.add("is-ok");
+  setTimeout(closeNewEvtModal, 1200);
+}
+
+</script>
+</body>
+</html>

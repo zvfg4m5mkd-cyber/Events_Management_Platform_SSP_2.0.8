@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.ops.title">设备运营累计指标表</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+<style>
+  /* ---- 数据表通用：复用 alert-table-v3 ---- */
+  .data-table-card { padding: 0; overflow-x: auto; }
+  .data-table-card table { min-width: 3200px; }
+  .data-table-card th,
+  .data-table-card td {
+    white-space: nowrap;
+    font-size: 12.5px;
+    padding: 8px 10px;
+  }
+  .om-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .om-id  { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-secondary); }
+  /* 比率 pill：根据阈值上色 */
+  .om-rate-pill {
+    display:inline-flex; align-items:center;
+    padding:2px 8px; border-radius:10px; font-size:12px; font-weight:600;
+    border:1px solid var(--border-line);
+    background: var(--bg-elev);
+  }
+  .om-rate-pill.tone-normal   { color: var(--status-normal);   border-color: rgba(67,160,71,.40); background: rgba(67,160,71,.10); }
+  .om-rate-pill.tone-warning  { color: var(--status-warning);  border-color: rgba(251,140,0,.40); background: rgba(251,140,0,.10); }
+  .om-rate-pill.tone-critical { color: var(--status-critical); border-color: rgba(229,57,53,.40); background: rgba(229,57,53,.10); }
+  .om-period-pill {
+    display:inline-flex; align-items:center;
+    padding:1px 8px; border-radius:10px; font-size:11.5px; font-weight:600;
+    color: var(--xcmg-blue);
+    background: rgba(33,150,243,.10);
+    border: 1px solid rgba(33,150,243,.35);
+  }
+  .om-group {
+    display:inline-block; padding: 1px 6px; margin-left:4px;
+    font-size:10.5px; color:var(--text-muted);
+    border:1px solid var(--border-line); border-radius:3px;
+  }
+  /* 严重状态徽章（保留兼容） */
+  .al-st-tag.al-st-evt-critical {
+    background: rgba(229,57,53,.10); color: #C62828;
+  }
+  .al-st-tag.al-st-evt-critical .al-st-dot {
+    background: #E53935; box-shadow: 0 0 0 2px rgba(229,57,53,.18);
+  }
+  [data-theme="dark"] .al-st-tag.al-st-evt-critical {
+    background: rgba(239,83,80,.18); color: #EF9A9A;
+  }
+</style>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <h1 data-i18n="page.ops.title">设备运营累计指标表</h1>
+      <div class="breadcrumb">首页 / 数据与管理 / 报表管理 / 设备运营累计指标表</div>
+    </div>
+    <div style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 14px;">
+      数据源：Carajás 设备的周期性运营指标，包含可用率 / 利用率 / 可靠性与维修统计
+    </div>
+
+    <!-- 过滤器 -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <input type="text" id="om-search" placeholder="搜索设备编号/型号/调度…" />
+      </div>
+      <select id="om-period">
+        <option value="7d">最近 7 天</option>
+        <option value="30d" selected>最近 30 天</option>
+        <option value="90d">最近 90 天</option>
+        <option value="180d">最近 180 天</option>
+        <option value="all">全部周期</option>
+      </select>
+      <select id="om-period-type">
+        <option value="">全部周期类型</option>
+        <option value="日">日</option>
+        <option value="周">周</option>
+        <option value="月">月</option>
+      </select>
+      <select id="om-asset-type">
+        <option value="">全部设备类型</option>
+        <option value="挖掘机">挖掘机</option>
+        <option value="装载机">装载机</option>
+        <option value="平地机">平地机</option>
+      </select>
+      <select id="om-model">
+        <option value="" data-i18n="common.allModels">全部型号</option>
+        <option value="XE5600">XE5600</option>
+        <option value="XE2000">XE2000</option>
+        <option value="GR5505">GR5505</option>
+        <option value="LW1200KN">LW1200KN</option>
+        <option value="LW1000KN">LW1000KN</option>
+      </select>
+      <button class="btn btn-sm btn-primary" id="om-import" style="margin-left:auto;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        导入
+      </button>
+      <button class="btn btn-sm" id="om-export">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        导出
+      </button>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+      <div class="kpi-card accent-blue" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">本周期记录</div>
+        <div style="font-size:22px;font-weight:700;color:var(--xcmg-blue);"><span id="om-kpi-total">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">条</span></div>
+      </div>
+      <div class="kpi-card accent-green" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">平均可用率 DF</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-normal);"><span id="om-kpi-avail">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">%</span></div>
+      </div>
+      <div class="kpi-card accent-orange" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">平均利用率 UT</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-warning);"><span id="om-kpi-util">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">%</span></div>
+      </div>
+      <div class="kpi-card accent-red" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">平均 MTBF</div>
+        <div style="font-size:22px;font-weight:700;color:var(--xcmg-blue);"><span id="om-kpi-mtbf">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">h</span></div>
+      </div>
+    </div>
+
+    <!-- 数据表（31 列） -->
+    <div class="card data-table-card">
+      <table class="alert-table-v3">
+        <thead>
+          <tr>
+            <th>设备编号</th>
+            <th>设备类型</th>
+            <th>设备型号</th>
+            <th style="text-align:right;">HEF 时间分类小时</th>
+            <th style="text-align:right;">HTI 时间分类小时</th>
+            <th style="text-align:right;">HAO 时间分类小时</th>
+            <th style="text-align:right;">HOE 时间分类小时</th>
+            <th style="text-align:right;">HOI 时间分类小时</th>
+            <th style="text-align:right;">HTD 时间分类小时</th>
+            <th style="text-align:right;">HMC 纠正性维护小时</th>
+            <th style="text-align:right;">HAC 纠正性维护小时</th>
+            <th style="text-align:right;">MPS 预防性维护小时</th>
+            <th style="text-align:right;">MPNS 预防性维护小时</th>
+            <th style="text-align:right;">纠正性维修小时</th>
+            <th style="text-align:right;">预防性维修小时</th>
+            <th style="text-align:right;">维修总小时</th>
+            <th style="text-align:right;">工作小时</th>
+            <th style="text-align:right;">日历小时</th>
+            <th style="text-align:right;">产量 (t)</th>
+            <th style="text-align:center;">DF 设备可用率</th>
+            <th style="text-align:center;">UT 利用率</th>
+            <th style="text-align:center;">RO 运行率/作业率</th>
+            <th style="text-align:right;">生产率 (t/h)</th>
+            <th style="text-align:right;">纠正性维修次数</th>
+            <th style="text-align:right;">预防性维修次数</th>
+            <th style="text-align:right;">维修总次数</th>
+            <th style="text-align:right;">MTBF 平均故障间隔</th>
+            <th style="text-align:right;">MTTR 平均修复时间</th>
+            <th style="text-align:right;">MTBS 平均维修间隔</th>
+            <th style="text-align:right;">MTTS 平均维护时间</th>
+            <th>调度/派工信息</th>
+          </tr>
+        </thead>
+        <tbody id="om-tbody"></tbody>
+      </table>
+      <div style="padding:10px 16px;border-top:1px solid var(--border-line);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:12.5px;color:var(--text-muted);">显示 <span id="om-shown">0</span> 条 / 共 <span id="om-total">0</span> 条记录</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">‹</span>
+          <span class="pg" style="border:1px solid var(--xcmg-blue);background:var(--xcmg-blue);color:#fff;border-radius:4px;padding:2px 8px;font-size:12px;">1</span>
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">›</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+/* ============== 数据准备 ============== */
+var OM_ALL = (XCMG_DATA && XCMG_DATA.opsMetrics) ? XCMG_DATA.opsMetrics.slice() : [];
+
+// 周期基线：取所有记录中最大 period_end
+var OM_BASE_TS = 0;
+for (var i = 0; i < OM_ALL.length; i++) {
+  var t = new Date(OM_ALL[i].period_end).getTime();
+  if (!isNaN(t) && t > OM_BASE_TS) OM_BASE_TS = t;
+}
+var DAY_MS = 86400000;
+
+/* ============== 工具函数 ============== */
+function escapeHtml(s) {
+  if (s == null) return "—";
+  return String(s).replace(/[&<>"']/g, function(c){
+    return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+  });
+}
+function ratePill(v, kind) {
+  // kind: avail / util / run
+  var n = Number(v);
+  if (isNaN(n)) return "—";
+  var cls = "tone-normal";
+  if (kind === "avail") {
+    cls = n >= 90 ? "tone-normal" : (n >= 80 ? "tone-warning" : "tone-critical");
+  } else if (kind === "util") {
+    cls = n >= 85 ? "tone-normal" : (n >= 75 ? "tone-warning" : "tone-critical");
+  } else { // run
+    cls = n >= 80 ? "tone-normal" : (n >= 70 ? "tone-warning" : "tone-critical");
+  }
+  return '<span class="om-rate-pill ' + cls + '">' + n.toFixed(1) + '%</span>';
+}
+function num(n, digits) {
+  if (n == null || isNaN(n)) return "—";
+  return Number(n).toLocaleString(undefined, {
+    minimumFractionDigits: digits || 0,
+    maximumFractionDigits: digits || 0
+  });
+}
+function ncell(n, digits) { return '<td class="om-num">' + num(n, digits) + '</td>'; }
+function cell(s)          { return "<td>" + (s == null || s === "" ? "—" : escapeHtml(s)) + "</td>"; }
+function idcell(s)        { return '<td><span class="om-id">' + (s == null || s === "" ? "—" : escapeHtml(s)) + "</span></td>"; }
+
+/* ============== 过滤 / 渲染 ============== */
+function omApplyFilter() {
+  var kw     = (document.getElementById("om-search").value || "").trim().toLowerCase();
+  var period = document.getElementById("om-period").value;
+  var ptype  = document.getElementById("om-period-type").value;
+  var atype  = document.getElementById("om-asset-type").value;
+  var model  = document.getElementById("om-model").value;
+
+  var maxDay = period === "7d"   ? 7
+             : period === "30d"  ? 30
+             : period === "90d"  ? 90
+             : period === "180d" ? 180
+             : Infinity;
+
+  var list = OM_ALL.filter(function(it){
+    if (ptype && it.period     !== ptype) return false;
+    if (atype && it.asset_type !== atype) return false;
+    if (model && it.model      !== model) return false;
+    if (maxDay !== Infinity && OM_BASE_TS > 0) {
+      var ts = new Date(it.period_end).getTime();
+      if (isNaN(ts)) return false;
+      var diffDay = (OM_BASE_TS - ts) / DAY_MS;
+      if (diffDay > maxDay) return false;
+    }
+    if (kw) {
+      var hay = [it.asset_id, it.asset_type, it.model, it.dispatch, it.period].join(" ").toLowerCase();
+      if (hay.indexOf(kw) === -1) return false;
+    }
+    return true;
+  });
+
+  // 按 period_end 倒序，再按 asset_id
+  list.sort(function(a,b){
+    var c = (b.period_end || "").localeCompare(a.period_end || "");
+    if (c !== 0) return c;
+    return (a.asset_id || "").localeCompare(b.asset_id || "");
+  });
+
+  // KPI
+  document.getElementById("om-kpi-total").textContent = list.length;
+  if (list.length === 0) {
+    document.getElementById("om-kpi-avail").textContent = "0";
+    document.getElementById("om-kpi-util").textContent  = "0";
+    document.getElementById("om-kpi-mtbf").textContent  = "0";
+  } else {
+    var avgAvail = list.reduce(function(s,x){ return s + (x.df_avail || 0); }, 0) / list.length;
+    var avgUtil  = list.reduce(function(s,x){ return s + (x.ut_util  || 0); }, 0) / list.length;
+    var avgMTBF  = list.reduce(function(s,x){ return s + (x.mtbf     || 0); }, 0) / list.length;
+    document.getElementById("om-kpi-avail").textContent = avgAvail.toFixed(1);
+    document.getElementById("om-kpi-util").textContent  = avgUtil.toFixed(1);
+    document.getElementById("om-kpi-mtbf").textContent  = avgMTBF.toFixed(1);
+  }
+
+  // 表格
+  var tbody = document.getElementById("om-tbody");
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="31" style="text-align:center;padding:40px;color:var(--text-muted);">没有匹配的记录</td></tr>';
+  } else {
+    tbody.innerHTML = list.map(function(it){
+      var periodLabel = '<span class="om-period-pill">' + escapeHtml(it.period) + '</span>'
+                      + '<span class="om-group">' + escapeHtml(it.period_start) + ' ~ ' + escapeHtml(it.period_end) + '</span>';
+      return '<tr>' +
+        idcell(it.asset_id) +
+        cell(it.asset_type) +
+        '<td>' + escapeHtml(it.model) + ' ' + periodLabel + '</td>' +
+        ncell(it.h_hef, 0) +
+        ncell(it.h_hti, 0) +
+        ncell(it.h_hao, 0) +
+        ncell(it.h_hoe, 0) +
+        ncell(it.h_hoi, 0) +
+        ncell(it.h_htd, 0) +
+        ncell(it.h_hmc, 1) +
+        ncell(it.h_hac, 1) +
+        ncell(it.h_mps, 1) +
+        ncell(it.h_mpns, 1) +
+        ncell(it.h_corr, 1) +
+        ncell(it.h_prev, 1) +
+        ncell(it.h_repair_total, 1) +
+        ncell(it.h_work, 0) +
+        ncell(it.h_calendar, 0) +
+        ncell(it.output, 0) +
+        '<td style="text-align:center;">' + ratePill(it.df_avail, "avail") + '</td>' +
+        '<td style="text-align:center;">' + ratePill(it.ut_util,  "util")  + '</td>' +
+        '<td style="text-align:center;">' + ratePill(it.ro_run,   "run")   + '</td>' +
+        ncell(it.prod_rate, 1) +
+        ncell(it.n_corr, 0) +
+        ncell(it.n_prev, 0) +
+        ncell(it.n_repair_total, 0) +
+        ncell(it.mtbf, 1) +
+        ncell(it.mttr, 1) +
+        ncell(it.mtbs, 1) +
+        ncell(it.mtts, 1) +
+        cell(it.dispatch) +
+      '</tr>';
+    }).join("");
+  }
+  document.getElementById("om-shown").textContent = list.length;
+  document.getElementById("om-total").textContent = list.length;
+}
+
+/* ============== 初始化 ============== */
+document.addEventListener("DOMContentLoaded", function(){
+  XCMG_NAV.mount("data-rpt-ops");
+  ["om-period","om-period-type","om-asset-type","om-model"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", omApplyFilter);
+  });
+  document.getElementById("om-search").addEventListener("input", omApplyFilter);
+  document.getElementById("om-export").addEventListener("click", function(){ alert("（原型）将导出当前过滤结果为 CSV"); });
+  document.getElementById("om-import").addEventListener("click", function(){ alert("（原型）将打开运营累计指标批量导入向导：\\n1. 下载导入模板（.xlsx）\\n2. 填写并上传\\n3. 后台校验后回写到指标表\\n\\n正式开发时对接后端接口。"); });
+  omApplyFilter();
+});
+</script>
+</body>
+</html>

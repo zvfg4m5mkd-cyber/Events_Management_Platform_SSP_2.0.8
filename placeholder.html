@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="placeholder.title">开发中</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <h1 id="ph-title" data-i18n="placeholder.title">模块占位</h1>
+      <div class="breadcrumb">首页 / <span id="ph-bread">模块</span></div>
+    </div>
+
+    <div class="card">
+      <div class="placeholder-wrap">
+        <div class="ph-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </div>
+        <h2 id="ph-name">模块开发中</h2>
+        <p id="ph-desc">该模块（油品/点检结果、报表分析、数据导入与接口、基础数据管理）将在下一迭代中交付，本次原型聚焦在 5 个核心页面的高保真还原。</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+          <a class="btn btn-primary" href="index.html">返回首页</a>
+          <a class="btn" href="assets.html">设备视图</a>
+          <a class="btn" href="alerts.html">告警视图</a>
+          <a class="btn" href="map.html">地图视图</a>
+          <a class="btn" href="events.html">事件处理</a>
+        </div>
+
+        <!-- 模块功能说明 -->
+        <div class="card mt-16" style="max-width:680px;text-align:left;">
+          <div class="card-header"><h3>模块计划包含的功能</h3></div>
+          <div class="card-body" id="feature-list" style="font-size:13px;line-height:1.9;color:var(--text-secondary);"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // 解析 URL 参数
+  var moduleName = "未命名模块";
+  var match = location.search.match(/m=([^&]+)/);
+  if (match) {
+    try { moduleName = decodeURIComponent(match[1]); } catch (e) { moduleName = match[1]; }
+  }
+
+  document.getElementById("ph-title").textContent = moduleName;
+  document.getElementById("ph-bread").textContent = moduleName;
+  document.getElementById("ph-name").textContent  = moduleName + " · 开发中";
+
+  // 决定 sidebar active
+  var activeKey = "";
+  if (moduleName.indexOf("油品") > -1 || moduleName.indexOf("点检") > -1) activeKey = "fluid";
+  else if (moduleName.indexOf("报表") > -1) activeKey = "report";
+  else if (moduleName.indexOf("导入") > -1 || moduleName.indexOf("接口") > -1) activeKey = "import";
+  else if (moduleName.indexOf("基础") > -1) activeKey = "manage";
+  XCMG_NAV.mount(activeKey);
+
+  // 各模块的功能清单
+  var features = {
+    "fluid": [
+      "油品检测结果列表（发动机油 / 液压油 / 冷却液）",
+      "点检任务派发与执行结果",
+      "异常等级分类（红黄绿灯）",
+      "每台设备油品历史趋势对比",
+      "关联告警自动触发"
+    ],
+    "report": [
+      "事件统计报表（按设备、按类型、按时间）",
+      "设备健康看板（可下钻）",
+      "重复告警分析（识别频发故障）",
+      "DF / MTBF / MTTR 关键指标",
+      "可导出 PDF / Excel"
+    ],
+    "import": [
+      "汉云接口接入（实时数据流）",
+      "MineCare 数据导入（CSV / API）",
+      "PowerBI 数据源连接",
+      "导入校验与异常报告",
+      "数据映射规则配置"
+    ],
+    "manage": [
+      "设备编码映射表",
+      "注册告警与等级维护",
+      "状态字典 / 类型字典",
+      "用户与权限管理（RBAC）",
+      "审计日志查询"
+    ]
+  };
+
+  var list = features[activeKey] || ["该模块暂无详细功能描述"];
+  document.getElementById("feature-list").innerHTML =
+    '<ul style="margin:0;padding-left:20px;">' +
+    list.map(function(f) { return '<li>' + f + '</li>'; }).join('') +
+    '</ul>';
+});
+</script>
+</body>
+</html>

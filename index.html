@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.index.title">设备绩效看板</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  // 防主题闪烁：尽早应用保存的主题
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+</head>
+<body>
+
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <div>
+        <h1 data-i18n="page.index.title">设备绩效看板</h1>
+        <div class="breadcrumb"><span data-i18n="breadcrumb.index">设备绩效看板 · 数据更新于</span> <span id="now-time"></span></div>
+      </div>
+      <div class="row gap-12">
+        <button class="btn btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+          <span data-i18n="common.refresh">刷新</span>
+        </button>
+        <button class="btn btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          <span data-i18n="report.export">导出报告</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 多维过滤器 -->
+    <div class="filter-row">
+      <div class="filter-item">
+        <span class="filter-label" data-i18n="filter.board">看板</span>
+        <select id="f-board">
+          <option data-i18n="opt.dashboard.p0">P0 全局看板</option>
+          <option data-i18n="opt.dashboard.excavator">挖掘机绩效</option>
+          <option data-i18n="opt.dashboard.loader">装载机绩效</option>
+          <option data-i18n="opt.dashboard.grader">平地机绩效</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <span class="filter-label" data-i18n="filter.time">时间范围</span>
+        <select id="f-time">
+          <option data-i18n="opt.last24h">最近 24 小时</option>
+          <option selected data-i18n="opt.last7d">近 7 天</option>
+          <option data-i18n="opt.last30d">近 30 天</option>
+          <option data-i18n="opt.thisQuarter">本季度</option>
+          <option data-i18n="opt.custom">自定义</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <span class="filter-label" data-i18n="filter.model">设备型号</span>
+        <select id="f-model">
+          <option value="" data-i18n="common.allModels">全部型号</option>
+          <option>XE5600</option>
+          <option>XE2000</option>
+          <option>GR5505</option>
+          <option>LW1200KN</option>
+          <option>LW1000KN</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <span class="filter-label" data-i18n="filter.assetType">设备类型</span>
+        <select id="f-type">
+          <option value="" data-i18n="common.allTypes">全部类型</option>
+          <option data-i18n="opt.type.excavator">挖掘机</option>
+          <option data-i18n="opt.type.grader">平地机</option>
+          <option data-i18n="opt.type.loader">装载机</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <span class="filter-label" data-i18n="filter.status">健康状态</span>
+        <select id="f-status">
+          <option value="" data-i18n="common.allStatus">全部状态</option>
+          <option data-i18n="opt.normal">正常</option>
+          <option data-i18n="opt.warning">警告</option>
+          <option data-i18n="opt.critical">严重</option>
+          <option data-i18n="opt.offline">离线</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <span class="filter-label" data-i18n="filter.area">所属区域</span>
+        <select id="f-region">
+          <option value="" data-i18n="common.allAreas">全部区域</option>
+          <option data-i18n="opt.area.openpit">露天矿区</option>
+          <option data-i18n="opt.area.dump">排土场</option>
+          <option data-i18n="opt.area.workshop">维修车间</option>
+          <option data-i18n="opt.area.station">装运站</option>
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button class="btn-reset" onclick="document.querySelectorAll('.filter-row select').forEach(function(s){s.selectedIndex=0;});" data-i18n="common.reset">重置</button>
+        <button class="btn-apply" data-i18n="common.apply">应用筛选</button>
+      </div>
+    </div>
+
+    <!-- 严重告警提示 -->
+    <div class="alert-banner" id="critical-banner" style="display:none;">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 9v4m0 4h.01M5.07 19h13.86a2 2 0 001.74-2.99L12.93 4.01 3.33 16.01A2 2 0 005.07 19z"/>
+      </svg>
+      <span id="critical-banner-text"></span>
+      <a href="alerts.html" style="margin-left:auto;color:var(--xcmg-blue);font-weight:600;" data-i18n="common.viewNow">立即查看 →</a>
+    </div>
+
+    <!-- KPI 区（4 张紧凑卡片） -->
+    <div class="bi-kpi-grid" id="bi-kpi-grid"></div>
+
+    <!-- BI 三栏：事件等级分布 / 事件趋势 / 设备状态概览 -->
+    <div class="bi-grid-3">
+      <div class="bi-card">
+        <div class="bi-head">
+          <h4 data-i18n="card.evtLevel">事件等级分布</h4>
+          <span class="bi-sub" id="evt-level-sub">总 0 条</span>
+        </div>
+        <div class="bi-body">
+          <div id="chart-alert-level" style="height:200px;"></div>
+          <div class="legend-list" id="alert-level-legend"></div>
+        </div>
+      </div>
+      <div class="bi-card span-2">
+        <div class="bi-head">
+          <h4 data-i18n="card.evtTrend">事件趋势</h4>
+          <span class="bi-sub" data-i18n="card.evtTrend.sub">最近 24 小时 · 高危 / 中等 / 低</span>
+        </div>
+        <div class="bi-body">
+          <div id="chart-events-trend" style="height:280px;"></div>
+        </div>
+      </div>
+      <div class="bi-card">
+        <div class="bi-head">
+          <h4 data-i18n="card.assetStatus">设备状态概览</h4>
+          <span class="bi-sub" id="asset-status-sub">共 5 台</span>
+        </div>
+        <div class="bi-body">
+          <div id="chart-asset-status" style="height:200px;"></div>
+          <div class="legend-list" id="asset-status-legend"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BI 二栏：Top 10 事件类型 / Top 10 事件设备 -->
+    <div class="bi-grid-2">
+      <div class="bi-card">
+        <div class="bi-head">
+          <h4 data-i18n="card.topType">Top 10 事件类型</h4>
+          <span class="bi-sub" data-i18n="card.topType.sub">按发生次数</span>
+        </div>
+        <div class="bi-body">
+          <div id="chart-top-type" style="height:340px;"></div>
+        </div>
+      </div>
+      <div class="bi-card">
+        <div class="bi-head">
+          <h4 data-i18n="card.topAsset">Top 10 事件设备</h4>
+          <span class="bi-sub" data-i18n="card.topAsset.sub">按事件总数</span>
+        </div>
+        <div class="bi-body">
+          <div id="chart-top-asset" style="height:340px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 紧急待处理事项 -->
+    <div class="bi-card">
+      <div class="bi-head">
+        <h4 style="color:var(--status-critical);"><span style="margin-right:4px;">⚠</span><span data-i18n="card.urgentEvt">紧急待处理事项</span></h4>
+        <a href="events.html" class="btn-ghost btn btn-sm" data-i18n="common.viewAll">查看全部 →</a>
+      </div>
+      <div class="bi-body" style="padding:0 0 4px;">
+        <table class="urgent-table">
+          <thead>
+            <tr>
+              <th style="padding-left:18px;" data-i18n="th.assetId">设备编号</th>
+              <th data-i18n="th.assetName">设备名称</th>
+              <th data-i18n="th.level">等级</th>
+              <th data-i18n="th.faultDesc">故障描述</th>
+              <th data-i18n="th.eventTime">发生时间</th>
+              <th data-i18n="th.status">状态</th>
+              <th style="text-align:right;padding-right:18px;" data-i18n="th.action">操作</th>
+            </tr>
+          </thead>
+          <tbody id="urgent-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/echarts.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  XCMG_NAV.mount("home");
+
+  var stats  = XCMG_DATA.stats;
+  var assets = XCMG_DATA.assets;
+  var alerts = XCMG_DATA.alerts;
+  var events = XCMG_DATA.events;
+
+  /* ==== 实时时钟 ==== */
+  function pad(n){return n<10?"0"+n:n;}
+  function refreshClock(){
+    var d=new Date();
+    document.getElementById("now-time").textContent =
+      d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+  }
+  refreshClock(); setInterval(refreshClock, 1000);
+
+  /* ==== KPI（4 张卡片）+ 严重告警 Banner（v2.0.1：i18n 动态渲染）==== */
+  var totalEvents = alerts.length; // 总事件数（用 alerts 集合）
+  var critCount   = stats.critical_count;
+  var warnCount   = stats.warning_count;
+  var infoCount   = stats.info_count;
+  var onlineCount = assets.filter(function(a){return a.status!=="offline";}).length;
+  var avgHealth   = Math.round(assets.reduce(function(s,a){return s+a.health;},0)/assets.length*10)/10;
+  var critAlerts  = alerts.filter(function(a){return a.level==="critical" && a.status==="active";});
+
+  function _t(k, fb, vars){
+    return (window.XCMG_I18N) ? window.XCMG_I18N.t(k, fb, vars) : (fb || k);
+  }
+
+  function buildKpis(){
+    var uptimePct = Math.round(onlineCount/assets.length*100);
+    var healthDelta = avgHealth>=80 ? _t("common.health.good", "运行良好")
+                    : avgHealth>=60 ? _t("common.health.attn", "需关注")
+                    : _t("common.health.urgent", "亟需维护");
+    return [
+      { label:_t("kpi.totalEvt","总事件数"), value: totalEvents, unit:_t("common.unit.cond","条"), tone:"", delta:"+12%", deltaCls:"delta-up", deltaText:_t("common.deltaText.lastWeek","较上周"),
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 2"/></svg>' },
+      { label:_t("kpi.critEvt","高危事件"), value: critCount, unit:_t("common.unit.cond","条"), tone:"tone-critical", delta:"+25%", deltaCls:"delta-up", deltaText:_t("common.deltaText.urgent","需立即处理"),
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M5.07 19h13.86a2 2 0 001.74-2.99L12.93 4.01 3.33 16.01A2 2 0 005.07 19z"/></svg>' },
+      { label:_t("kpi.onlineDev","在线设备"), value: onlineCount + "/" + assets.length, unit:"", tone:"tone-info", barPct: uptimePct, barColor:"var(--status-normal)", deltaText:_t("common.deltaText.uptime","在线率") + " " + uptimePct + "%",
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/></svg>' },
+      { label:_t("kpi.healthAvg","平均健康度"), value: avgHealth, unit:"%", tone: avgHealth>=80?"tone-success":avgHealth>=60?"tone-warning":"tone-critical", barPct: avgHealth,
+        barColor: avgHealth>=80?"var(--status-normal)":avgHealth>=60?"var(--status-warning)":"var(--status-critical)",
+        deltaText: healthDelta,
+        icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>' }
+    ];
+  }
+
+  function renderKpi(){
+    var kpis = buildKpis();
+    document.getElementById("bi-kpi-grid").innerHTML = kpis.map(function(k){
+      var bar = (k.barPct!==undefined)
+        ? '<div class="bk-bar"><span style="width:'+k.barPct+'%;background:'+k.barColor+';"></span></div>'
+        : '';
+      var foot = '<div class="bk-foot">' + (k.delta?'<span class="'+k.deltaCls+'">'+(k.deltaCls==="delta-up"?"↑":"↓")+' '+k.delta+'</span>':"") + '<span>'+(k.deltaText||"")+'</span></div>';
+      return '<div class="bi-kpi-card">' +
+        '<div class="bk-head">' +
+          '<span class="bk-label">' + k.label + '</span>' +
+          '<span class="bk-icon">' + k.icon + '</span>' +
+        '</div>' +
+        '<div class="bk-value '+(k.tone||"")+'">' + k.value + (k.unit?'<span class="bk-unit">'+k.unit+'</span>':"") + '</div>' +
+        bar + foot +
+      '</div>';
+    }).join("");
+  }
+
+  function renderBanner(){
+    if (critAlerts.length > 0) {
+      var b = document.getElementById("critical-banner");
+      b.style.display = "flex";
+      b.querySelector("#critical-banner-text").textContent =
+        _t("alert.critUnresolvedFmt", "当前有 {n} 条严重告警未处理，需立即关注", { n: critAlerts.length });
+    }
+  }
+
+  function renderSubs(){
+    var s1 = document.getElementById("evt-level-sub");
+    if (s1) s1.textContent = _t("card.evtLevel.subFmt", "总 {n} 条", { n: totalEvents });
+    var s2 = document.getElementById("asset-status-sub");
+    if (s2) s2.textContent = _t("card.assetStatus.subFmt", "共 {n} 台", { n: assets.length });
+  }
+
+  renderKpi();
+  renderBanner();
+  // total-evt-count / asset-total 数字稍后会被 ECharts 统计逻辑改写，renderSubs 在 ECharts 完成后再调一次
+  renderSubs();
+
+  // 监听语言切换：重渲染 KPI / Banner / Subs
+  window.addEventListener("xcmg:langchange", function(){
+    renderKpi();
+    renderBanner();
+    renderSubs();
+  });
+
+  /* ==== ECharts 实例集合（便于主题切换重绘） ==== */
+  var chartInsts = [];
+  function registerChart(domId, optBuilder){
+    var dom = document.getElementById(domId);
+    if (!dom) return;
+    var inst = echarts.init(dom);
+    function render(){ inst.setOption(optBuilder(XCMG_THEME.palette()), true); }
+    render();
+    chartInsts.push({ inst: inst, render: render });
+  }
+
+  /* ==== 1) 事件等级分布（环形图） ==== */
+  // total-evt-count / asset-total 已合并到 renderSubs() 用 i18n 模板渲染
+  registerChart("chart-alert-level", function(p){
+    return {
+      tooltip:{ trigger:"item", formatter:"{b}: {c} 条 ({d}%)",
+                backgroundColor:p.tooltipBg, borderColor:p.tooltipBorder, textStyle:{color:p.tooltipText} },
+      color:[p.critical, p.warning, p.info],
+      series:[{
+        type:"pie", radius:["55%","78%"],
+        center:["50%","50%"],
+        avoidLabelOverlap:true,
+        itemStyle:{ borderColor:p.bgCard, borderWidth:2 },
+        label:{ show:true, position:"center", formatter:"{d}", fontSize:18, fontWeight:600, color:p.textPrimary,
+                rich:{} },
+        emphasis:{ label:{ show:true, fontSize:22, fontWeight:700, formatter:"{c}\n{b}" } },
+        data:[
+          { name:"高危", value: critCount },
+          { name:"中等", value: warnCount },
+          { name:"低",   value: infoCount }
+        ]
+      }]
+    };
+  });
+  document.getElementById("alert-level-legend").innerHTML = (function(){
+    var p = XCMG_THEME.palette();
+    var rows = [
+      { c: p.critical, label:"高危", value: critCount },
+      { c: p.warning,  label:"中等", value: warnCount },
+      { c: p.info,     label:"低",   value: infoCount }
+    ];
+    return rows.map(function(r){
+      return '<div class="lg-row"><span class="lg-label"><span class="lg-dot" style="background:'+r.c+';"></span>'+r.label+'</span><span class="lg-val">'+r.value+'</span></div>';
+    }).join("");
+  })();
+
+  /* ==== 2) 事件趋势（24 小时多折线，带渐变面积） ==== */
+  // 模拟 24 小时点
+  var hours = [], hSeriesCrit = [], hSeriesWarn = [], hSeriesInfo = [];
+  for (var i=0; i<=24; i+=2) {
+    hours.push((i<10?"0"+i:i)+":00");
+  }
+  // 数据形态参考截图：低线最高，中等次之，高危最低
+  hSeriesInfo = [12, 8,  9, 13, 18, 22, 20, 18, 15, 12, 13, 11, 10];
+  hSeriesWarn = [4,  3,  3,  6,  9, 11, 12,  9,  7,  6,  5,  4,  3];
+  hSeriesCrit = [1,  0,  0,  1,  2,  3,  3,  2,  1,  1,  1,  0,  0];
+
+  registerChart("chart-events-trend", function(p){
+    function area(color){
+      return new echarts.graphic.LinearGradient(0,0,0,1,[
+        { offset:0, color: color + "55" },
+        { offset:1, color: color + "00" }
+      ]);
+    }
+    return {
+      tooltip:{ trigger:"axis",
+                backgroundColor:p.tooltipBg, borderColor:p.tooltipBorder, textStyle:{color:p.tooltipText} },
+      legend:{ data:["高危","中等","低"], top:4, right:10, textStyle:{color:p.textSecondary}, itemWidth:14, itemHeight:8 },
+      grid:{ left:8, right:14, top:36, bottom:6, containLabel:true },
+      xAxis:{ type:"category", data:hours, boundaryGap:false,
+              axisLine:{ lineStyle:{ color:p.axisLine } },
+              axisLabel:{ color:p.textSecondary, fontSize:11 } },
+      yAxis:{ type:"value", min:0,
+              axisLine:{ show:false },
+              axisTick:{ show:false },
+              splitLine:{ lineStyle:{ color:p.splitLine, type:"dashed" } },
+              axisLabel:{ color:p.textSecondary, fontSize:11 } },
+      series:[
+        { name:"高危", type:"line", data: hSeriesCrit, smooth:true, symbol:"circle", symbolSize:6,
+          lineStyle:{ color:p.critical, width:2 }, itemStyle:{ color:p.critical, borderColor:p.bgCard, borderWidth:2 },
+          areaStyle:{ color: area(p.critical) } },
+        { name:"中等", type:"line", data: hSeriesWarn, smooth:true, symbol:"circle", symbolSize:6,
+          lineStyle:{ color:p.warning,  width:2 }, itemStyle:{ color:p.warning, borderColor:p.bgCard, borderWidth:2 },
+          areaStyle:{ color: area(p.warning) } },
+        { name:"低",   type:"line", data: hSeriesInfo, smooth:true, symbol:"circle", symbolSize:6,
+          lineStyle:{ color:p.info,     width:2 }, itemStyle:{ color:p.info, borderColor:p.bgCard, borderWidth:2 },
+          areaStyle:{ color: area(p.info) } }
+      ]
+    };
+  });
+
+  /* ==== 3) 设备状态概览（环形图 + 图例） ==== */
+  // status: normal / warning / critical / offline
+  var statusBuckets = { normal:0, warning:0, critical:0, offline:0 };
+  assets.forEach(function(a){ statusBuckets[a.status] = (statusBuckets[a.status]||0)+1; });
+  registerChart("chart-asset-status", function(p){
+    return {
+      tooltip:{ trigger:"item", formatter:"{b}: {c} 台 ({d}%)",
+                backgroundColor:p.tooltipBg, borderColor:p.tooltipBorder, textStyle:{color:p.tooltipText} },
+      color:[ p.normal, p.warning, p.critical, p.muted ],
+      series:[{
+        type:"pie", radius:["55%","78%"], center:["50%","50%"],
+        avoidLabelOverlap:true,
+        itemStyle:{ borderColor:p.bgCard, borderWidth:2 },
+        label:{ show:true, position:"center", formatter:"{d}", fontSize:18, fontWeight:600, color:p.textPrimary },
+        emphasis:{ label:{ show:true, fontSize:22, fontWeight:700, formatter:"{c}\n{b}" } },
+        data:[
+          { name:"运行中", value: statusBuckets.normal   },
+          { name:"待机",   value: statusBuckets.warning  },
+          { name:"故障",   value: statusBuckets.critical },
+          { name:"离线",   value: statusBuckets.offline  }
+        ]
+      }]
+    };
+  });
+  document.getElementById("asset-status-legend").innerHTML = (function(){
+    var p = XCMG_THEME.palette();
+    var rows = [
+      { c:p.normal,   label:"运行中", value: statusBuckets.normal },
+      { c:p.warning,  label:"待机",   value: statusBuckets.warning },
+      { c:p.critical, label:"故障",   value: statusBuckets.critical },
+      { c:p.muted,    label:"离线",   value: statusBuckets.offline }
+    ];
+    return rows.map(function(r){
+      return '<div class="lg-row"><span class="lg-label"><span class="lg-dot" style="background:'+r.c+';"></span>'+r.label+'</span><span class="lg-val">'+r.value+'</span></div>';
+    }).join("");
+  })();
+
+  /* ==== 4) Top 10 事件类型（横向蓝色柱状图） ==== */
+  // 按 alert.title 聚合次数 + 加几条扩展项以接近真实 Top10
+  var typeMap = {};
+  alerts.forEach(function(a){
+    var key = (a.title||"").replace(/\s+/g,'').slice(0,12);
+    typeMap[key] = (typeMap[key]||0)+1;
+  });
+  // 补充几个虚拟运维高频项（让维度更丰富）
+  var extra = { "液压系统压力异常": 24, "发动机高温": 18, "轮胎磨损": 15, "电气故障": 12, "冷却系统": 10,
+                "传动系统": 8, "刹车系统": 7, "悬挂系统": 6, "滤芯堵塞": 5, "润滑不足": 4 };
+  Object.keys(extra).forEach(function(k){ if(!typeMap[k]) typeMap[k] = extra[k]; });
+  var typeArr = Object.keys(typeMap).map(function(k){return {name:k, value:typeMap[k]};})
+                                    .sort(function(a,b){return b.value-a.value;}).slice(0,10);
+  registerChart("chart-top-type", function(p){
+    return {
+      tooltip:{ trigger:"axis", axisPointer:{ type:"shadow" },
+                backgroundColor:p.tooltipBg, borderColor:p.tooltipBorder, textStyle:{color:p.tooltipText} },
+      grid:{ left:8, right:32, top:8, bottom:6, containLabel:true },
+      xAxis:{ type:"value", axisLine:{ lineStyle:{ color:p.axisLine } },
+              axisLabel:{ color:p.textSecondary, fontSize:11 },
+              splitLine:{ lineStyle:{ color:p.splitLine, type:"dashed" } } },
+      yAxis:{ type:"category", inverse:true, data: typeArr.map(function(d){return d.name;}),
+              axisLine:{ show:false }, axisTick:{ show:false },
+              axisLabel:{ color:p.textSecondary, fontSize:12 } },
+      series:[{
+        type:"bar",
+        data: typeArr.map(function(d){return d.value;}),
+        barWidth: 14,
+        itemStyle:{ color: new echarts.graphic.LinearGradient(0,0,1,0,[
+                  { offset:0, color:p.info },
+                  { offset:1, color:p.blue }
+                ]), borderRadius:[0,7,7,0] },
+        label:{ show:true, position:"right", formatter:"{c}", color:p.textPrimary, fontSize:11, fontWeight:600 }
+      }]
+    };
+  });
+
+  /* ==== 5) Top 10 事件设备（横向红色柱状图） ==== */
+  // 用真实 5 台设备扩展为 10 个实例编号，按事件总数排序
+  var assetEventBase = {};
+  events.forEach(function(e){ assetEventBase[e.asset_name] = (assetEventBase[e.asset_name]||0) + 1; });
+  alerts.forEach(function(a){ assetEventBase[a.asset_name] = (assetEventBase[a.asset_name]||0) + 1; });
+  // 扩展 10 项（多机位编号）
+  var assetTopArr = [
+    { name:"XE5600 #001",  value: 12 },
+    { name:"XE2000 #002",  value: 11 },
+    { name:"GR5505 #003",  value: 10 },
+    { name:"LW1200KN #004",value: 9  },
+    { name:"LW1000KN #005",value: 8  },
+    { name:"XE5600 #012",  value: 7  },
+    { name:"XE2000 #008",  value: 6  },
+    { name:"GR5505 #015",  value: 5  },
+    { name:"LW1200KN #021",value: 4  },
+    { name:"LW1000KN #007",value: 3  }
+  ];
+  registerChart("chart-top-asset", function(p){
+    return {
+      tooltip:{ trigger:"axis", axisPointer:{ type:"shadow" },
+                backgroundColor:p.tooltipBg, borderColor:p.tooltipBorder, textStyle:{color:p.tooltipText} },
+      grid:{ left:8, right:32, top:8, bottom:6, containLabel:true },
+      xAxis:{ type:"value", axisLine:{ lineStyle:{ color:p.axisLine } },
+              axisLabel:{ color:p.textSecondary, fontSize:11 },
+              splitLine:{ lineStyle:{ color:p.splitLine, type:"dashed" } } },
+      yAxis:{ type:"category", inverse:true, data: assetTopArr.map(function(d){return d.name;}),
+              axisLine:{ show:false }, axisTick:{ show:false },
+              axisLabel:{ color:p.textSecondary, fontSize:12 } },
+      series:[{
+        type:"bar",
+        data: assetTopArr.map(function(d){return d.value;}),
+        barWidth: 14,
+        itemStyle:{ color: new echarts.graphic.LinearGradient(0,0,1,0,[
+                  { offset:0, color: p.critical + "AA" },
+                  { offset:1, color: p.critical }
+                ]), borderRadius:[0,7,7,0] },
+        label:{ show:true, position:"right", formatter:"{c}", color:p.textPrimary, fontSize:11, fontWeight:600 }
+      }]
+    };
+  });
+
+  /* ==== 6) 紧急待处理事项表 ==== */
+  // 取 critical 等级的事件 + pending/processing 的事件，最多 6 条
+  var urgent = events.filter(function(e){
+    return (e.level==="critical") || (e.status==="pending");
+  }).slice(0, 6);
+  document.getElementById("urgent-table-body").innerHTML = urgent.map(function(e){
+    var levelPill = e.level==="critical" ? '<span class="status-pill pill-critical"><span class="dot"></span>高</span>' :
+                    e.level==="warning"  ? '<span class="status-pill pill-warning"><span class="dot"></span>中</span>' :
+                                           '<span class="status-pill pill-info"><span class="dot"></span>低</span>';
+    var statusPill = XCMG_DATA.eventStatusToPill(e.status);
+    var statusHtml = '<span class="status-pill ' + statusPill.cls + '"><span class="dot"></span>' + statusPill.text + '</span>';
+    var assetCode = "XM-2026-" + e.asset_id.split("-")[1].slice(0,3).toUpperCase();
+    return '<tr onclick="location.href=\'events.html\'" style="cursor:pointer;">' +
+      '<td style="padding-left:18px;font-family:Consolas,monospace;color:var(--text-secondary);">' + assetCode + '</td>' +
+      '<td><span style="font-weight:600;">' + e.asset_name + '</span> <span class="muted text-sm">/ ' + e.category + '</span></td>' +
+      '<td>' + levelPill + '</td>' +
+      '<td>' + e.title + '</td>' +
+      '<td class="muted text-sm">' + e.created_at + '</td>' +
+      '<td>' + statusHtml + '</td>' +
+      '<td style="text-align:right;padding-right:18px;"><a href="events.html" style="color:var(--xcmg-blue);">详情 →</a></td>' +
+    '</tr>';
+  }).join("");
+
+  /* ==== 主题切换 - 重绘所有图表与图例 ==== */
+  function relegend() {
+    var p = XCMG_THEME.palette();
+    document.getElementById("alert-level-legend").innerHTML =
+      [{c:p.critical,label:"高危",v:critCount},{c:p.warning,label:"中等",v:warnCount},{c:p.info,label:"低",v:infoCount}]
+      .map(function(r){return '<div class="lg-row"><span class="lg-label"><span class="lg-dot" style="background:'+r.c+';"></span>'+r.label+'</span><span class="lg-val">'+r.v+'</span></div>';}).join("");
+    document.getElementById("asset-status-legend").innerHTML =
+      [{c:p.normal,label:"运行中",v:statusBuckets.normal},{c:p.warning,label:"待机",v:statusBuckets.warning},{c:p.critical,label:"故障",v:statusBuckets.critical},{c:p.muted,label:"离线",v:statusBuckets.offline}]
+      .map(function(r){return '<div class="lg-row"><span class="lg-label"><span class="lg-dot" style="background:'+r.c+';"></span>'+r.label+'</span><span class="lg-val">'+r.v+'</span></div>';}).join("");
+  }
+  window.addEventListener("xcmg:themechange", function(){
+    chartInsts.forEach(function(c){ c.render(); });
+    relegend();
+  });
+
+  window.addEventListener("resize", function() {
+    chartInsts.forEach(function(c){ c.inst.resize(); });
+  });
+});
+</script>
+</body>
+</html>

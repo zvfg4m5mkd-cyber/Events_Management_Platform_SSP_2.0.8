@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.assets.title">设备健康</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <!-- 标题 + 视图切换 -->
+    <div class="al-page-head">
+      <div>
+        <h1 class="al-page-title" data-i18n="page.assets.title">设备健康</h1>
+        <div class="al-page-sub">设备状态总览与告警/油品/点检统一视图。可在右上方切换<strong>按设备查看</strong>或<strong>按告警查看</strong>。</div>
+      </div>
+      <div class="view-toggle" id="view-toggle">
+        <button class="vt-btn is-active" data-view="asset" onclick="switchView('asset')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M3 7l9-4 9 4-9 4-9-4zm0 5l9 4 9-4M3 17l9 4 9-4"/></svg>
+          按设备查看
+        </button>
+        <button class="vt-btn" data-view="alert" onclick="switchView('alert')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M12 9v4m0 4h.01M5.07 19h13.86a2 2 0 001.74-2.99l-6.93-12a2 2 0 00-3.48 0l-6.93 12A2 2 0 005.07 19z"/></svg>
+          按告警查看
+        </button>
+      </div>
+    </div>
+
+    <!-- 设备视图状态 tabs（仅在按设备查看时显示） -->
+    <!-- ============= 视图容器 ============= -->
+    <div id="view-asset">
+
+    <!-- 筛选条（顶部，与告警视图风格一致） -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="搜索设备编号 / 序列号…" />
+      </div>
+      <select id="filter-model">
+        <option value="" data-i18n="common.allModels">全部型号</option>
+        <option value="XE5600">XE5600</option>
+        <option value="XE2000">XE2000</option>
+        <option value="GR5505">GR5505</option>
+        <option value="LW1200KN">LW1200KN</option>
+        <option value="LW1000KN">LW1000KN</option>
+      </select>
+      <select id="filter-site">
+        <option value="">全部矿区/车队</option>
+        <option value="鄂尔多斯煤矿A区">鄂尔多斯煤矿A区</option>
+        <option value="鄂尔多斯煤矿B区">鄂尔多斯煤矿B区</option>
+        <option value="鄂尔多斯煤矿C区">鄂尔多斯煤矿C区</option>
+      </select>
+      <select id="filter-dispatch">
+        <option value="" data-i18n="common.allStatus">全部状态</option>
+        <option value="working">作业中</option>
+        <option value="ready">就绪</option>
+        <option value="locked">已锁车</option>
+        <option value="maintenance">检修中</option>
+        <option value="idle">待机</option>
+      </select>
+      <select id="filter-health">
+        <option value="">全部健康等级</option>
+        <option value="normal">正常</option>
+        <option value="watch">关注</option>
+        <option value="risk">高风险</option>
+      </select>
+      <select id="filter-hasevt">
+        <option value="">是否有事件</option>
+        <option value="yes">有未关闭事件</option>
+        <option value="no">无未关闭事件</option>
+      </select>
+      <select id="filter-pm">
+        <option value="">下次PM</option>
+        <option value="7">7 天内</option>
+        <option value="30">30 天内</option>
+        <option value="overdue">已逾期</option>
+      </select>
+      <button class="btn btn-primary" id="al-btn-query" onclick="renderTable()" style="height:32px;padding:0 14px;font-size:13px;">查询</button>
+      <button class="btn btn-ghost" id="al-btn-reset" onclick="resetAssetFilters()" style="height:32px;padding:0 14px;font-size:13px;" data-i18n="common.reset">重置</button>
+    </div>
+
+    <!-- 关键数字（与告警视图统一风格） -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+      <div class="kpi-card accent-blue" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">设备总数</div>
+        <div style="font-size:22px;font-weight:700;color:var(--xcmg-blue);" id="kpi-total">—</div>
+      </div>
+      <div class="kpi-card accent-red" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">高风险设备</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-critical);" id="kpi-risk">—</div>
+      </div>
+      <div class="kpi-card accent-orange" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">未关闭事件</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-warning);" id="kpi-events">—</div>
+      </div>
+      <div class="kpi-card accent-green" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">今日已恢复</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-normal);" id="kpi-recover">—</div>
+      </div>
+    </div>
+
+    <!-- 设备总数提示 -->
+    <div class="al-list-head">
+      <div class="al-list-title">设备资产列表</div>
+      <div class="al-list-tip">点击"详情"进入单台设备视图，查看事件、基本信息、维保信息和维修历史。</div>
+    </div>
+
+    <!-- 设备列表 -->
+    <div class="card" style="padding:0;">
+      <table class="data-table asset-list-table">
+        <thead>
+          <tr>
+            <th style="width:88px;">健康</th>
+            <th style="width:96px;">照片</th>
+            <th>设备编号</th>
+            <th>设备型号</th>
+            <th>设备类别</th>
+            <th>联网状态</th>
+            <th>调度状态</th>
+            <th>未处理警报通知</th>
+            <th>累计工作小时</th>
+            <th>下次PM</th>
+            <th>最后位置</th>
+            <th style="width:140px;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="asset-table-body"></tbody>
+      </table>
+    </div>
+    </div><!-- /view-asset -->
+
+    <!-- ============= 告警视图（合并自原 alerts.html） ============= -->
+    <div id="view-alert" style="display:none;">
+      <!-- Tab 导航 -->
+          <div class="tabs">
+            <div class="tab active" id="tab-fault" onclick="switchTab('fault')">告警码</div>
+            <div class="tab" id="tab-fluid" onclick="switchTab('fluid')">油品分析</div>
+            <div class="tab" id="tab-inspect" onclick="switchTab('inspect')">点检</div>
+          </div>
+
+          <!-- ===== Fault Codes ===== -->
+          <div id="panel-fault">
+            <!-- 实时 / 历史 sub-tabs -->
+            <div class="al-subtabs">
+              <button class="al-subtab is-active" id="al-subtab-active"  onclick="setAlertTab('active')">
+                <span class="al-subtab-dot"></span>实时告警
+                <span class="al-subtab-count" id="al-cnt-active">0</span>
+              </button>
+              <button class="al-subtab" id="al-subtab-history" onclick="setAlertTab('history')">
+                <span class="al-subtab-dot al-subtab-dot-his"></span>历史告警
+                <span class="al-subtab-count" id="al-cnt-history">0</span>
+              </button>
+            </div>
+
+            <div class="filter-bar">
+              <div class="search-box">
+                <input type="text" id="alert-search" placeholder="搜索告警码 / 描述 / 设备…" />
+              </div>
+              <select id="alert-level-filter">
+                <option value="" data-i18n="common.allLevels">全部等级</option>
+                <option value="critical">严重</option>
+                <option value="warning">中等</option>
+                <option value="info">低</option>
+              </select>
+              <select id="alert-asset-filter">
+                <option value="">全部设备</option>
+                <option value="XE5600">XE5600</option>
+                <option value="XE2000">XE2000</option>
+                <option value="GR5505">GR5505</option>
+                <option value="LW1200KN">LW1200KN</option>
+                <option value="LW1000KN">LW1000KN</option>
+              </select>
+              <select id="alert-status-filter">
+                <option value="" data-i18n="common.allStatus">全部状态</option>
+                <option value="active">活跃</option>
+                <option value="converted">已转事件</option>
+                <option value="ignored">已忽略</option>
+              </select>
+              <select id="alert-downtime-filter">
+                <option value="">是否停机</option>
+                <option value="yes">是</option>
+                <option value="no">否</option>
+              </select>
+            </div>
+
+            <!-- 统计摘要 -->
+            <div class="kpi-grid" style="grid-template-columns:repeat(6,1fr);margin-bottom:14px;">
+              <div class="kpi-card accent-red" style="padding:12px 14px;">
+                <div style="font-size:12px;color:var(--text-muted);">严重</div>
+                <div style="font-size:22px;font-weight:700;color:var(--status-critical);" id="stat-critical">0</div>
+              </div>
+              <div class="kpi-card accent-orange" style="padding:12px 14px;">
+                <div style="font-size:12px;color:var(--text-muted);">中等</div>
+                <div style="font-size:22px;font-weight:700;color:var(--status-warning);" id="stat-warning">0</div>
+              </div>
+              <div class="kpi-card accent-blue" style="padding:12px 14px;">
+                <div style="font-size:12px;color:var(--text-muted);">低</div>
+                <div style="font-size:22px;font-weight:700;color:var(--xcmg-blue);" id="stat-info">0</div>
+              </div>
+              <div class="kpi-card accent-red" style="padding:12px 14px;">
+                <div style="font-size:12px;color:var(--text-muted);">活跃</div>
+                <div style="font-size:22px;font-weight:700;color:var(--status-critical);" id="stat-active">0</div>
+              </div>
+              <div class="kpi-card accent-blue" style="padding:12px 14px;">
+                <div style="font-size:12px;color:var(--text-muted);">已转事件</div>
+                <div style="font-size:22px;font-weight:700;color:var(--xcmg-blue);" id="stat-converted">0</div>
+              </div>
+              <div class="kpi-card" style="padding:12px 14px;">
+                <div style="font-size:12px;color:var(--text-muted);">已忽略</div>
+                <div style="font-size:22px;font-weight:700;color:var(--text-muted);" id="stat-ignored">0</div>
+              </div>
+            </div>
+
+            <div class="text-sm muted mb-12" id="alert-count"></div>
+            <div class="card" style="padding:0;overflow-x:auto;">
+              <table class="alert-table-v3">
+                <thead>
+                  <tr>
+                    <th style="width:88px;">状态</th>
+                    <th style="width:64px;">等级</th>
+                    <th style="width:132px;">首次触发时间</th>
+                    <th style="width:96px;">持续时长</th>
+                    <th style="width:128px;">设备编号</th>
+                    <th style="width:96px;">设备型号</th>
+                    <th style="width:72px;">告警码</th>
+                    <th>告警描述</th>
+                    <th style="width:80px;text-align:center;">是否停机</th>
+                    <th style="width:96px;">来源</th>
+                    <th style="width:200px;text-align:center;">处理</th>
+                  </tr>
+                </thead>
+                <tbody id="alerts-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ===== Fluid Analysis ===== -->
+          <div id="panel-fluid" style="display:none;">
+
+            <!-- 过滤器（与告警/设备清单风格一致） -->
+            <div class="filter-bar">
+              <div class="search-box">
+                <input type="text" id="fluid-search" placeholder="搜索设备编号 / 型号 / 送检机构…" />
+              </div>
+              <select id="fluid-status-filter">
+                <option value="" data-i18n="common.allStatus">全部状态</option>
+                <option value="normal">正常</option>
+                <option value="warning">中等</option>
+                <option value="critical">必须采取行动</option>
+              </select>
+              <select id="fluid-asset-filter">
+                <option value="">全部设备</option>
+                <option value="XE5600">XE5600</option>
+                <option value="XE2000">XE2000</option>
+                <option value="GR5505">GR5505</option>
+                <option value="LW1200KN">LW1200KN</option>
+                <option value="LW1000KN">LW1000KN</option>
+              </select>
+              <select id="fluid-period-filter">
+                <option value="">全部周期</option>
+                <option value="7">最近 7 天</option>
+                <option value="14">最近 14 天</option>
+                <option value="30">最近 30 天</option>
+              </select>
+            </div>
+
+            <!-- 列表表头（与卡片 8 列严格对齐） -->
+            <div class="fluid-list-head">
+              <div class="fluid-lh">设备编号</div>
+              <div class="fluid-lh">采样日期</div>
+              <div class="fluid-lh">送检机构</div>
+              <div class="fluid-lh">发动机油</div>
+              <div class="fluid-lh">液压油</div>
+              <div class="fluid-lh">综合结论</div>
+              <div class="fluid-lh">状态</div>
+              <div class="fluid-lh"></div>
+            </div>
+
+            <!-- 油品分析卡片列表 -->
+            <div class="fluid-list" id="fluid-list"></div>
+          </div>
+
+          <!-- ===== Inspection Results（按设备聚合 / 4 色缺陷计数 / 可展开缺陷明细） ===== -->
+          <div id="panel-inspect" style="display:none;">
+
+            <!-- 过滤器（与告警/设备清单风格一致） -->
+            <div class="filter-bar">
+              <div class="search-box">
+                <input type="text" id="insp-search" placeholder="搜索设备编号 / 型号 / 点检员…" />
+              </div>
+              <select id="insp-overall-filter">
+                <option value="" data-i18n="common.allStatus">全部状态</option>
+                <option value="normal">正常</option>
+                <option value="warning">注意观察</option>
+                <option value="critical">立即处置</option>
+              </select>
+              <select id="insp-asset-filter">
+                <option value="">全部设备</option>
+                <option value="XE5600">XE5600</option>
+                <option value="XE2000">XE2000</option>
+                <option value="GR5505">GR5505</option>
+                <option value="LW1200KN">LW1200KN</option>
+                <option value="LW1000KN">LW1000KN</option>
+              </select>
+              <select id="insp-defect-filter">
+                <option value="">全部缺陷等级</option>
+                <option value="red">含重大缺陷</option>
+                <option value="yellow">含注意观察</option>
+                <option value="clean">仅常态正常</option>
+              </select>
+            </div>
+
+            <!-- 顶部工具条 -->
+            <div class="insp-toolbar">
+              <div class="insp-tool-group">
+                <span class="insp-tool-lab">数据聚合口径</span>
+                <select class="insp-tool-sel">
+                  <option>按设备自编号排序</option>
+                  <option>按整体状态排序</option>
+                  <option>按上次点检时间排序</option>
+                </select>
+              </div>
+              <div class="insp-tool-group">
+                <span class="insp-tool-lab">同步周期</span>
+                <select class="insp-tool-sel">
+                  <option>最近 7 天</option>
+                  <option>最近 14 天</option>
+                  <option>最近 30 天</option>
+                </select>
+              </div>
+              <div class="insp-tool-summary">渲染数：<b id="insp-render-num">0</b> 台 / <b id="insp-render-form">0</b> 单</div>
+            </div>
+
+            <!-- 列表表头（与卡片 7 列严格对齐） -->
+            <div class="insp-list-head">
+              <div class="insp-lh insp-lh-toggle"></div>
+              <div class="insp-lh insp-lh-asset">设备编号</div>
+              <div class="insp-lh insp-lh-hours">工作小时</div>
+              <div class="insp-lh insp-lh-time">点检时间</div>
+              <div class="insp-lh insp-lh-form">点检单数</div>
+              <div class="insp-lh insp-lh-summary">缺陷统计（重大 / 注意 / 常态 / 不涉及）</div>
+              <div class="insp-lh insp-lh-gps">末次 GPS</div>
+            </div>
+
+            <!-- 卡片列表 -->
+            <div class="insp-list" id="insp-list"></div>
+          </div>
+    </div><!-- /view-alert -->
+
+  </main>
+</div>
+
+<!-- 设备详情抽屉 -->
+<div class="drawer-mask" id="drawer-mask" onclick="closeDrawer()"></div>
+<div class="drawer" id="detail-drawer">
+  <div class="drawer-header">
+    <h3 id="drawer-title">设备详情</h3>
+    <button class="x-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+  <div class="drawer-footer">
+    <button class="btn btn-ghost" onclick="closeDrawer()" data-i18n="common.close">关闭</button>
+    <button class="btn btn-primary" onclick="location.href='alerts.html'">查看告警 →</button>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/alh_modal.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/echarts.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  XCMG_NAV.mount("assets");
+  renderKPI();
+  bindStatusTabs();
+  renderTable();
+
+  document.getElementById("search-input").addEventListener("input", renderTable);
+  document.getElementById("filter-model").addEventListener("change", renderTable);
+  document.getElementById("filter-site").addEventListener("change", renderTable);
+  document.getElementById("filter-dispatch").addEventListener("change", renderTable);
+  document.getElementById("filter-health").addEventListener("change", renderTable);
+  document.getElementById("filter-hasevt").addEventListener("change", renderTable);
+  document.getElementById("filter-pm").addEventListener("change", renderTable);
+});
+
+/* ========== 顶部 KPI ========== */
+function renderKPI() {
+  var s = (XCMG_DATA && XCMG_DATA.fleet_summary) || {};
+  var $ = function(id){ return document.getElementById(id); };
+  if ($("kpi-total"))   $("kpi-total").textContent   = (s.total != null ? s.total : XCMG_DATA.assets.length);
+  if ($("kpi-risk"))    $("kpi-risk").textContent    = (s.high_risk != null ? s.high_risk : "—");
+  if ($("kpi-events"))  $("kpi-events").textContent  = (s.open_events != null ? s.open_events : "—");
+  if ($("kpi-recover")) $("kpi-recover").textContent = (s.recovered_today != null ? s.recovered_today : "—");
+}
+
+/* ========== 状态切换 tabs ========== */
+function bindStatusTabs() {
+  var tabs = document.querySelectorAll("#al-status-tabs .al-stat-btn");
+  tabs.forEach(function(b){
+    b.addEventListener("click", function(){
+      tabs.forEach(function(x){ x.classList.remove("is-active"); });
+      b.classList.add("is-active");
+      window.__alStatusTab = b.getAttribute("data-status") || "all";
+      renderTable();
+    });
+  });
+  window.__alStatusTab = "all";
+}
+
+/* ========== 健康等级派生 ========== */
+function getHealthLevel(asset) {
+  var h = (asset && asset.health) || 0;
+  // 高风险：health < 50 或存在 critical active 告警
+  var hasCrit = (XCMG_DATA.alerts || []).some(function(x){
+    return x.asset_id === asset.id && x.status === "active" && x.level === "critical";
+  });
+  if (h < 50 || hasCrit) return "risk";
+  if (h < 80) return "watch";
+  return "normal";
+}
+function _hasOpenEvent(assetId) {
+  var evts = XCMG_DATA.events || [];
+  return evts.some(function(e){
+    return e.asset_id === assetId && e.status !== "closed";
+  });
+}
+function _pmDaysFromNow(pmDate) {
+  if (!pmDate) return null;
+  var d = new Date(pmDate + "T00:00:00");
+  if (isNaN(d.getTime())) return null;
+  var now = new Date();
+  // 取日历天差（向下取整）
+  var ms = d.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.floor(ms / 86400000);
+}
+
+function getFilters() {
+  return {
+    q: document.getElementById("search-input").value.trim().toLowerCase(),
+    model: document.getElementById("filter-model").value,
+    site: document.getElementById("filter-site").value,
+    dispatch: document.getElementById("filter-dispatch").value,
+    health: document.getElementById("filter-health").value,
+    hasevt: document.getElementById("filter-hasevt").value,
+    pm: document.getElementById("filter-pm").value,
+    statusTab: window.__alStatusTab || "all"
+  };
+}
+
+function resetAssetFilters() {
+  document.getElementById("search-input").value = "";
+  ["filter-model","filter-site","filter-dispatch","filter-health","filter-hasevt","filter-pm"].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.value = "";
+  });
+  // 状态 tab 也回到全部
+  var tabs = document.querySelectorAll("#al-status-tabs .al-stat-btn");
+  tabs.forEach(function(x){ x.classList.remove("is-active"); });
+  var first = document.querySelector('#al-status-tabs [data-status="all"]');
+  if (first) first.classList.add("is-active");
+  window.__alStatusTab = "all";
+  renderTable();
+}
+
+function _activeAlarmCount(assetId) {
+  return (XCMG_DATA.alerts || []).filter(function(x){ return x.asset_id === assetId && x.status === "active"; }).length;
+}
+
+function renderTable() {
+  var assets = XCMG_DATA.assets;
+  var f = getFilters();
+  var filtered = assets.filter(function(a) {
+    // 状态 tab
+    var ds = a.dispatch_status || "ready";
+    if (f.statusTab === "running"     && ds !== "working")     return false;
+    if (f.statusTab === "stopped"     && ds !== "locked")      return false;
+    if (f.statusTab === "maintenance" && ds !== "maintenance") return false;
+    // 筛选条
+    if (f.model && a.model !== f.model) return false;
+    if (f.site && a.site !== f.site) return false;
+    if (f.dispatch && ds !== f.dispatch) return false;
+    if (f.health && getHealthLevel(a) !== f.health) return false;
+    if (f.hasevt) {
+      var has = _hasOpenEvent(a.id);
+      if (f.hasevt === "yes" && !has) return false;
+      if (f.hasevt === "no"  &&  has) return false;
+    }
+    if (f.pm) {
+      var d = _pmDaysFromNow(a.next_pm);
+      if (d === null) return false;
+      if (f.pm === "7"       && !(d >= 0 && d <= 7))   return false;
+      if (f.pm === "30"      && !(d >= 0 && d <= 30))  return false;
+      if (f.pm === "overdue" && !(d < 0))              return false;
+    }
+    if (f.q) {
+      var q = f.q;
+      return a.id.toLowerCase().indexOf(q) > -1 ||
+             (a.model || "").toLowerCase().indexOf(q) > -1 ||
+             a.name.toLowerCase().indexOf(q) > -1 ||
+             a.sn.toLowerCase().indexOf(q) > -1 ||
+             a.location.toLowerCase().indexOf(q) > -1;
+    }
+    return true;
+  });
+  // 默认按设备编号
+  filtered.sort(function(a, b) { return a.id.localeCompare(b.id); });
+
+  document.getElementById("asset-table-body").innerHTML = filtered.map(function(a) {
+    // 该设备未处理告警按等级计数
+    var assetAlerts = (XCMG_DATA.alerts || []).filter(function(x){ return x.asset_id === a.id && x.status === "active"; });
+    var cntCrit = 0, cntWarn = 0, cntInfo = 0;
+    assetAlerts.forEach(function(x){
+      if (x.level === "critical") cntCrit++;
+      else if (x.level === "warning") cntWarn++;
+      else cntInfo++;
+    });
+
+    // 联网状态
+    var net = a.net_status || "online";
+    var netHtml = (net === "offline")
+      ? '<span class="al-net al-net-off"><span class="al-net-dot"></span>离线</span>'
+      : '<span class="al-net al-net-on"><span class="al-net-dot"></span>在线</span>';
+
+    // 调度状态
+    var dsMap = {
+      ready:       { cls: "al-ds-ready",  text: "就绪" },
+      working:     { cls: "al-ds-work",   text: "作业中" },
+      locked:      { cls: "al-ds-locked", text: "已锁车" },
+      maintenance: { cls: "al-ds-maint",  text: "检修中" },
+      idle:        { cls: "al-ds-idle",   text: "待机" }
+    };
+    var ds = dsMap[a.dispatch_status] || dsMap.ready;
+    var dsHtml = '<span class="al-ds ' + ds.cls + '">' + ds.text + '</span>';
+
+    // 未处理警报通知（三个等级图标+数字并排）
+    var alertCellCls = (cntCrit > 0) ? "al-alarm-cell has-crit" : "al-alarm-cell";
+    var alarmHtml =
+      '<div class="' + alertCellCls + '">' +
+        '<span class="al-am al-am-crit" title="3级故障"><span class="al-am-ic ic-crit">●</span><span class="al-am-num">' + cntCrit + '</span></span>' +
+        '<span class="al-am al-am-warn" title="2级警告"><span class="al-am-ic ic-warn">▲</span><span class="al-am-num">' + cntWarn + '</span></span>' +
+        '<span class="al-am al-am-info" title="1级提示"><span class="al-am-ic ic-info">i</span><span class="al-am-num">' + cntInfo + '</span></span>' +
+      '</div>';
+
+    var rowId = "row-" + a.id;
+    // 下次 PM
+    var pm = a.next_pm || "—";
+    var pmHtml = '<span class="al-pm-date">' + pm + '</span>';
+    // 健康等级胶囊
+    var hLvl = getHealthLevel(a);
+    var hMap = {
+      risk:   { cls: "al-h-risk",   text: "高风险" },
+      watch:  { cls: "al-h-watch",  text: "关注"   },
+      normal: { cls: "al-h-normal", text: "正常"   }
+    };
+    var hCfg = hMap[hLvl] || hMap.normal;
+    var healthHtml = '<span class="al-h-tag ' + hCfg.cls + '">' + hCfg.text + '</span>';
+    // 操作列
+    var actHtml =
+      '<div class="al-asset-acts">' +
+        '<a class="al-act-view" onclick="event.stopPropagation();goDetail(\'' + a.id + '\')">详情</a>' +
+        '<a class="al-act-conv" onclick="event.stopPropagation();handleAssetConvert(\'' + a.id + '\')">转事件</a>' +
+      '</div>';
+    return '<tr id="' + rowId + '" class="al-row" onclick="goDetail(\'' + a.id + '\')" style="cursor:pointer;">' +
+      '<td>' + healthHtml + '</td>' +
+      '<td><div class="asset-photo-cell"><img class="asset-photo" src="img/' + a.model + '_thumb.jpg" alt="' + a.model + '" onerror="this.onerror=null;this.style.display=\'none\';this.parentNode.classList.add(\'no-photo\');"/></div></td>' +
+      '<td><span class="al-code">' + a.id + '</span></td>' +
+      '<td><span class="al-model">' + a.model + '</span></td>' +
+      '<td>' + a.category + '</td>' +
+      '<td>' + netHtml + '</td>' +
+      '<td>' + dsHtml + '</td>' +
+      '<td>' + alarmHtml + '</td>' +
+      '<td><span class="al-hours">' + a.uptime_hours.toLocaleString() + '</span> 小时</td>' +
+      '<td>' + pmHtml + '</td>' +
+      '<td><a class="al-loc" href="map.html?asset=' + encodeURIComponent(a.id) + '" onclick="event.stopPropagation();">' + a.location + '</a></td>' +
+      '<td onclick="event.stopPropagation();">' + actHtml + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* ========== 设备转事件 ========== */
+function handleAssetConvert(assetId) {
+  var a = XCMG_DATA.getAssetById(assetId);
+  if (!a) return;
+  var actives = (XCMG_DATA.alerts || []).filter(function(x){
+    return x.asset_id === assetId && x.status === "active";
+  });
+  var top = actives.sort(function(x,y){
+    var w = { critical: 3, warning: 2, info: 1 };
+    return (w[y.level]||0) - (w[x.level]||0);
+  })[0];
+  var msg = "将基于设备 " + a.id + "（" + a.name + "）创建事件\n\n";
+  msg += "健康等级：" + ({risk:"高风险",watch:"关注",normal:"正常"}[getHealthLevel(a)]) + "\n";
+  msg += "活跃告警：" + actives.length + " 条" + (top ? ("，主因 " + top.code + " " + top.title) : "") + "\n\n";
+  msg += "确认创建事件并跳转到事件视图？";
+  if (window.confirm(msg)) {
+    location.href = "events.html?from_asset=" + encodeURIComponent(assetId);
+  }
+}
+
+function goDetail(assetId) {
+  location.href = "asset_detail.html?id=" + encodeURIComponent(assetId);
+}
+
+function openDrawer(assetId) {
+  var asset = XCMG_DATA.getAssetById(assetId);
+  if (!asset) return;
+
+  // 高亮行
+  document.querySelectorAll(".data-table tbody tr").forEach(function(r) { r.classList.remove("expanded"); });
+  var row = document.getElementById("row-" + assetId);
+  if (row) row.classList.add("expanded");
+
+  var pill = XCMG_UTIL.pill(asset.status);
+  var timeline = XCMG_DATA.getAssetTimeline(assetId);
+  var barColor = asset.health >= 80 ? "#43A047" : asset.health >= 50 ? "#FB8C00" : "#E53935";
+
+  document.getElementById("drawer-title").textContent = asset.name + " · 设备详情";
+  document.getElementById("drawer-body").innerHTML =
+    '<div class="grid-2 mb-16">' +
+      '<div>' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">' +
+          XCMG_UTIL.assetThumb(asset) +
+          '<div><div style="font-size:18px;font-weight:700;">' + asset.name + '</div>' + pill + '</div>' +
+        '</div>' +
+        '<table style="width:100%;font-size:13px;border-collapse:collapse;">' +
+          '<tr><td style="padding:6px 0;color:var(--text-muted);width:90px;">设备编号</td><td style="font-weight:500;">' + asset.id + '</td></tr>' +
+          '<tr><td style="padding:6px 0;color:var(--text-muted);">序列号</td><td>' + asset.sn + '</td></tr>' +
+          '<tr><td style="padding:6px 0;color:var(--text-muted);">设备类型</td><td>' + asset.category + '</td></tr>' +
+          '<tr><td style="padding:6px 0;color:var(--text-muted);">作业班组</td><td>' + asset.fleet + '</td></tr>' +
+          '<tr><td style="padding:6px 0;color:var(--text-muted);">工作地点</td><td>' + asset.location + '</td></tr>' +
+          '<tr><td style="padding:6px 0;color:var(--text-muted);">今日作业</td><td><span style="font-weight:600;">' + asset.work_hours_today + ' h</span></td></tr>' +
+          '<tr><td style="padding:6px 0;color:var(--text-muted);">累计作业</td><td>' + asset.uptime_hours.toLocaleString() + ' h</td></tr>' +
+          '<tr><td style="padding:6px 0;color:var(--text-muted);">技术规格</td><td style="font-size:12px;">' + asset.spec + '</td></tr>' +
+        '</table>' +
+      '</div>' +
+      '<div>' +
+        '<div class="card-header" style="padding:10px 14px;"><h3 style="font-size:13px;">健康评分</h3></div>' +
+        '<div style="padding:14px;">' +
+          '<div style="text-align:center;font-size:56px;font-weight:700;color:' + barColor + ';">' + asset.health + '<span style="font-size:20px;">分</span></div>' +
+          '<div style="height:12px;background:#E5E9F0;border-radius:6px;margin:12px 0;">' +
+            '<div style="width:' + asset.health + '%;height:100%;background:' + barColor + ';border-radius:6px;"></div>' +
+          '</div>' +
+          '<div class="text-sm muted" style="text-align:center;">较上周 <span style="color:var(--status-critical);">-4</span> 分</div>' +
+        '</div>' +
+        '<div style="border-top:1px solid var(--border-light);padding:14px;">' +
+          '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">最近告警</div>' +
+          '<div id="drawer-alerts"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="card-header"><h3>设备时间轴</h3><span class="text-sm muted">共 ' + timeline.length + ' 条记录</span></div>' +
+    '<div class="timeline" style="padding:16px 16px 16px 36px;">' +
+      timeline.map(function(item) {
+        return '<div class="tl-item">' +
+          '<div class="tl-dot ' + (item.dotClass || "") + '"></div>' +
+          '<div class="tl-time">' + item.time + '</div>' +
+          '<div class="tl-title">' + item.title + '</div>' +
+          '<div class="tl-desc">' + item.desc + '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+
+  // 抽屉内告警
+  var assetAlerts = XCMG_DATA.alerts.filter(function(a) { return a.asset_id === assetId && a.status === "active"; });
+  document.getElementById("drawer-alerts").innerHTML = assetAlerts.slice(0, 3).map(function(a) {
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--border-light);">' +
+      '<div style="display:flex;align-items:center;gap:6px;">' + XCMG_UTIL.severityBar(a.level) +
+      '<span style="font-size:12.5px;font-weight:600;">' + a.code + '</span></div>' +
+      '<div class="text-sm" style="color:var(--text-secondary);margin-top:2px;">' + a.title + '</div>' +
+    '</div>';
+  }).join('') || '<div class="text-sm muted">无活跃告警</div>';
+
+  document.getElementById("drawer-mask").classList.add("show");
+  document.getElementById("detail-drawer").classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeDrawer() {
+  document.getElementById("drawer-mask").classList.remove("show");
+  document.getElementById("detail-drawer").classList.remove("open");
+  // 同时关闭告警处理弹窗（共用同一遮罩层）
+  var alh = document.getElementById("alh-modal");
+  if (alh) alh.classList.remove("show");
+  document.body.style.overflow = "";
+  document.querySelectorAll(".data-table tbody tr").forEach(function(r) { r.classList.remove("expanded"); });
+}
+
+
+/* —————————————————————————————
+   v1.9.2 视图切换：按设备 / 按告警
+   ————————————————————————————— */
+function switchView(view) {
+  document.querySelectorAll(".vt-btn").forEach(function(btn){
+    btn.classList.toggle("is-active", btn.getAttribute("data-view") === view);
+  });
+  var asset = document.getElementById("view-asset");
+  var alert = document.getElementById("view-alert");
+  if (view === "alert") {
+    asset.style.display = "none";
+    alert.style.display = "";
+    initAlertView();
+  } else {
+    asset.style.display = "";
+    alert.style.display = "none";
+  }
+}
+
+
+var currentTab = "fault";
+
+function initAlertView() {
+  if (window.__alertViewInited) return;
+  window.__alertViewInited = true;
+  renderStats();
+  renderAlerts();
+
+  document.getElementById("alert-search").addEventListener("input", renderAlerts);
+  document.getElementById("alert-level-filter").addEventListener("change", renderAlerts);
+  document.getElementById("alert-asset-filter").addEventListener("change", renderAlerts);
+  document.getElementById("alert-status-filter").addEventListener("change", renderAlerts);
+  document.getElementById("alert-downtime-filter").addEventListener("change", renderAlerts);
+
+  // 点检卡片版过滤器
+  var inspBindings = [
+    ["insp-search",         "input"],
+    ["insp-overall-filter", "change"],
+    ["insp-asset-filter",   "change"],
+    ["insp-defect-filter",  "change"]
+  ];
+  inspBindings.forEach(function(p){
+    var el = document.getElementById(p[0]);
+    if (el) el.addEventListener(p[1], renderInspectPanel);
+  });
+
+  // 油品分析过滤器
+  var fluidBindings = [
+    ["fluid-search",        "input"],
+    ["fluid-status-filter", "change"],
+    ["fluid-asset-filter",  "change"],
+    ["fluid-period-filter", "change"]
+  ];
+  fluidBindings.forEach(function(p){
+    var el = document.getElementById(p[0]);
+    if (el) el.addEventListener(p[1], renderFluidPanel);
+  });
+
+  renderFluidPanel();
+  renderInspectPanel();
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById("tab-fault").classList.toggle("active", tab === "fault");
+  document.getElementById("tab-fluid").classList.toggle("active", tab === "fluid");
+  document.getElementById("tab-inspect").classList.toggle("active", tab === "inspect");
+  document.getElementById("panel-fault").style.display   = tab === "fault"   ? "" : "none";
+  document.getElementById("panel-fluid").style.display  = tab === "fluid"   ? "" : "none";
+  document.getElementById("panel-inspect").style.display = tab === "inspect" ? "" : "none";
+}
+
+/* ===== 告警 sub-tab：实时/历史 ===== */
+var ALERT_TAB = "active";  // 'active' | 'history'
+
+function setAlertTab(tab) {
+  ALERT_TAB = tab;
+  document.getElementById("al-subtab-active").classList.toggle("is-active", tab === "active");
+  document.getElementById("al-subtab-history").classList.toggle("is-active", tab === "history");
+  // 切 tab 时重置 status-filter 为全部
+  document.getElementById("alert-status-filter").value = "";
+  renderAlerts();
+}
+
+function alertInTab(a, tab) {
+  // 实时：status === active；历史：status !== active（已转事件 / 已忽略 / 已闭环）
+  if (tab === "active") return (a.status || "active") === "active";
+  return (a.status || "active") !== "active";
+}
+
+
+function renderStats() {
+  var alerts = XCMG_DATA.alerts;
+  var s = { critical:0, warning:0, info:0, active:0, converted:0, ignored:0 };
+  for (var i = 0; i < alerts.length; i++) {
+    var a = alerts[i];
+    if (a.level === "critical") s.critical++;
+    else if (a.level === "warning") s.warning++;
+    else s.info++;
+    if (a.status === "active") s.active++;
+    else if (a.status === "converted") s.converted++;
+    else if (a.status === "ignored") s.ignored++;
+  }
+  document.getElementById("stat-critical").textContent = s.critical;
+  document.getElementById("stat-warning").textContent  = s.warning;
+  document.getElementById("stat-info").textContent     = s.info;
+  document.getElementById("stat-active").textContent   = s.active;
+  document.getElementById("stat-converted").textContent= s.converted;
+  document.getElementById("stat-ignored").textContent  = s.ignored;
+}
+
+function renderAlerts() {
+  var alerts = XCMG_DATA.alerts;
+  var q = document.getElementById("alert-search").value.trim().toLowerCase();
+  var levelF = document.getElementById("alert-level-filter").value;
+  var assetF = document.getElementById("alert-asset-filter").value;
+  var statusF = document.getElementById("alert-status-filter").value;
+  var dtF = document.getElementById("alert-downtime-filter").value;
+
+  // tab 大类预过滤
+  var tabAll = alerts.filter(function(a){ return alertInTab(a, ALERT_TAB); });
+
+  var filtered = tabAll.filter(function(a) {
+    if (levelF && a.level !== levelF) return false;
+    if (assetF && a.asset_name !== assetF) return false;
+    if (statusF && a.status !== statusF) return false;
+    if (dtF && (a.downtime||"no") !== dtF) return false;
+    if (q) {
+      return a.code.toLowerCase().indexOf(q) > -1 ||
+             a.title.toLowerCase().indexOf(q) > -1 ||
+             a.asset_name.toLowerCase().indexOf(q) > -1 ||
+             (a.desc||"").toLowerCase().indexOf(q) > -1;
+    }
+    return true;
+  });
+
+  // 同步两 tab 计数（基于"非 tab 大类的全量"，让用户看到对侧条数）
+  var cntActive  = alerts.filter(function(a){ return alertInTab(a, "active"); }).length;
+  var cntHistory = alerts.filter(function(a){ return alertInTab(a, "history"); }).length;
+  document.getElementById("al-cnt-active").textContent  = cntActive;
+  document.getElementById("al-cnt-history").textContent = cntHistory;
+
+  document.getElementById("alert-count").textContent =
+    "共 " + filtered.length + " 条" + (ALERT_TAB === "active" ? "实时" : "历史") +
+    "告警（当前 tab 总计 " + tabAll.length + " 条）";
+
+  document.getElementById("alerts-tbody").innerHTML = filtered.map(function(a) {
+    return renderAlertRow(a);
+  }).join('');
+}
+
+/* —— 工具：解析"YYYY-MM-DD HH:MM"为 Date —— */
+function parseDT(s) {
+  if (!s) return null;
+  var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+  if (!m) return null;
+  return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
+}
+
+/* —— 工具：格式化持续时长 —— */
+function fmtDuration(start, end) {
+  var s = parseDT(start), e = parseDT(end);
+  if (!s || !e) return "—";
+  var ms = e - s;
+  if (ms < 0) return "—";
+  var min = Math.round(ms / 60000);
+  if (min < 60) return min + " 分钟";
+  var h = Math.floor(min / 60);
+  var rmin = min % 60;
+  if (h < 24) return h + " 小时" + (rmin > 0 ? " " + rmin + " 分" : "");
+  var d = Math.floor(h / 24);
+  var rh = h % 24;
+  return d + " 天" + (rh > 0 ? " " + rh + " 小时" : "");
+}
+
+/* —— 工具：渲染单行告警 —— */
+function renderAlertRow(a) {
+  var rowCls = a.level === "critical" ? " row-crit" : "";
+  var status = a.status || "active";
+
+  // 状态 tag
+  var stMap = {
+    active:    { txt:"活跃",     cls:"al-st-active" },
+    converted: { txt:"已转事件", cls:"al-st-converted" },
+    ignored:   { txt:"已忽略",   cls:"al-st-ignored" }
+  };
+  var st = stMap[status] || stMap.active;
+  var stHtml = '<span class="al-st-tag ' + st.cls + '"><span class="al-st-dot"></span>' + st.txt + '</span>';
+
+  // 等级 tag（用现有 lv-tag 风格）
+  var lvMap = { critical:{txt:"严重",cls:"lv-3"}, warning:{txt:"中等",cls:"lv-2"}, info:{txt:"低",cls:"lv-1"} };
+  var lv = lvMap[a.level] || lvMap.info;
+  var lvHtml = '<span class="lv-tag ' + lv.cls + '">' + lv.txt + '</span>';
+
+  // 首次触发
+  var firstAt = '<span class="al-time">' + (a.first_occurred || "—") + '</span>';
+
+  // 持续时长（active 用 last_occurred，已闭环也用 last_occurred）
+  var dur = fmtDuration(a.first_occurred, a.last_occurred);
+  var durHtml = '<span class="al-dur' + (status==="active"?" is-live":"") + '">' + dur + '</span>';
+
+  // 设备编号 / 设备型号 / 告警码（独立列）
+  var assetIdHtml = '<span class="al-asset-id">' + (a.asset_id || "—") + '</span>';
+  var assetModelHtml = '<span class="al-asset-model">' + (a.asset_name || "—") + '</span>';
+  var codeHtml = '<span class="al-code">' + (a.code || "—") + '</span>';
+
+  // 告警描述（标题 + 详情，已不含设备/告警码）
+  var descHtml =
+    '<div class="al-desc-main">' + (a.title || "") + '</div>' +
+    (a.desc ? '<div class="al-desc-sub"><span class="al-desc-detail">' + a.desc + '</span></div>' : '');
+
+  // 是否停机
+  var dt = a.downtime || (a.level === "critical" ? "yes" : "no");
+  var dtHtml = dt === "yes"
+    ? '<span class="al-dt al-dt-yes">是</span>'
+    : '<span class="al-dt al-dt-no">否</span>';
+
+  // 来源
+  var srcHtml = '<span class="al-source">' + (a.source || "—") + '</span>';
+
+  // 处理列
+  var disabled = status !== "active";
+  var actHtml =
+    '<div class="al-actions" onclick="event.stopPropagation();">' +
+      '<button class="al-act al-act-view" onclick="event.stopPropagation();openAlertDrawer(\'' + a.id + '\')">查看</button>' +
+      '<button class="al-act al-act-conv" ' + (disabled?'disabled':'') + ' onclick="event.stopPropagation();handleConvert(\'' + a.id + '\')">转事件</button>' +
+      '<button class="al-act al-act-ign" ' + (disabled?'disabled':'') + ' onclick="event.stopPropagation();handleIgnore(\'' + a.id + '\')">忽略</button>' +
+    '</div>';
+
+  return '<tr class="al-row' + rowCls + '" onclick="openAlertDrawer(\'' + a.id + '\')">' +
+    '<td>' + stHtml + '</td>' +
+    '<td>' + lvHtml + '</td>' +
+    '<td>' + firstAt + '</td>' +
+    '<td>' + durHtml + '</td>' +
+    '<td>' + assetIdHtml + '</td>' +
+    '<td>' + assetModelHtml + '</td>' +
+    '<td>' + codeHtml + '</td>' +
+    '<td style="min-width:240px;">' + descHtml + '</td>' +
+    '<td style="text-align:center;">' + dtHtml + '</td>' +
+    '<td>' + srcHtml + '</td>' +
+    '<td style="text-align:center;">' + actHtml + '</td>' +
+  '</tr>';
+}
+
+/* —— 处理：转事件 —— */
+function handleConvert(alertId) {
+  var a = null;
+  for (var i=0;i<XCMG_DATA.alerts.length;i++){ if (XCMG_DATA.alerts[i].id===alertId){a=XCMG_DATA.alerts[i];break;} }
+  if (!a) return;
+  if (confirm("确定将该告警转为事件工单？\n\n" + a.code + " · " + a.title + "\n设备：" + a.asset_name)) {
+    a.status = "converted";
+    renderStats(); renderAlerts();
+    setTimeout(function(){ location.href = "events.html"; }, 200);
+  }
+}
+
+/* —— 处理：忽略 —— */
+function handleIgnore(alertId) {
+  var a = null;
+  for (var i=0;i<XCMG_DATA.alerts.length;i++){ if (XCMG_DATA.alerts[i].id===alertId){a=XCMG_DATA.alerts[i];break;} }
+  if (!a) return;
+  if (confirm("确定忽略该告警？\n\n" + a.code + " · " + a.title + "\n设备：" + a.asset_name + "\n\n忽略后将不再提示，但仍保留在记录中。")) {
+    a.status = "ignored";
+    renderStats(); renderAlerts();
+  }
+}
+
+
+function renderFluidPanel() {
+  var allFluids = XCMG_DATA.fluidAnalysis || [];
+
+  // ===== 过滤条件 =====
+  var qEl  = document.getElementById("fluid-search");
+  var stEl = document.getElementById("fluid-status-filter");
+  var asEl = document.getElementById("fluid-asset-filter");
+  var pdEl = document.getElementById("fluid-period-filter");
+  var q  = qEl  ? qEl.value.trim().toLowerCase() : "";
+  var st = stEl ? stEl.value : "";
+  var as = asEl ? asEl.value : "";
+  var pd = pdEl ? parseInt(pdEl.value || "0", 10) : 0;
+
+  // 周期过滤基线：以 fluidAnalysis 中最大 sample_date 为"今天"
+  var baseTs = 0;
+  allFluids.forEach(function(f){
+    var t = Date.parse(f.sample_date || "");
+    if (!isNaN(t) && t > baseTs) baseTs = t;
+  });
+
+  var fluids = allFluids.filter(function(f) {
+    if (q) {
+      var hay = ((f.asset_id || "") + " " + (f.asset_name || "") + " " + (f.lab || "")).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    if (st && f.status !== st) return false;
+    if (as && (f.asset_id || "").indexOf(as) !== 0) return false;
+    if (pd && baseTs) {
+      var t = Date.parse(f.sample_date || "");
+      if (isNaN(t)) return false;
+      var diffDay = (baseTs - t) / 86400000;
+      if (diffDay > pd) return false;
+    }
+    return true;
+  });
+
+  // ===== 卡片列表 =====
+  var statusMap = {
+    normal:   { cls: "fluid-st-normal",   label: "正常",         dot: "#43A047" },
+    warning:  { cls: "fluid-st-warning",  label: "中等",         dot: "#FB8C00" },
+    critical: { cls: "fluid-st-critical", label: "必须采取行动", dot: "#E53935" }
+  };
+  var spectrumMap = {
+    normal:   { cls: "tone-good", label: "状态常态正常" },
+    warning:  { cls: "tone-warn", label: "建议关注复测" },
+    critical: { cls: "tone-bad",  label: "必须采取动作" }
+  };
+
+  var html = fluids.map(function(f, idx){
+    var st = statusMap[f.status] || statusMap.normal;
+    var t = f.totals || { critical:0, warning:0, normal:0 };
+    var crit = t.critical || 0, warn = t.warning || 0, norm = t.normal || 0;
+    var oilColor = (f.status === "normal") ? "#43A047" : (f.status === "critical" ? "#E53935" : "#FB8C00");
+
+    var head =
+      '<div class="fluid-card-head" onclick="toggleFluidCard(' + idx + ')">' +
+        '<div class="fluid-asset">' +
+          '<div class="fluid-asset-name">' + f.asset_name + '</div>' +
+          '<div class="fluid-asset-sub">' + f.asset_id + ' · ' + (f.area || "") + ' · 矿用' + (f.category || "") + ' · ' + (f.service_meter || 0).toLocaleString() + 'h</div>' +
+        '</div>' +
+        '<div class="fluid-cell"><div class="fluid-cell-val">' + f.sample_date + '</div></div>' +
+        '<div class="fluid-cell"><div class="fluid-cell-val">' + f.lab + '</div></div>' +
+        '<div class="fluid-cell"><div class="fluid-cell-val" style="color:' + oilColor + ';font-weight:700;">' + f.engine_oil.score + ' <span class="text-sm muted" style="font-weight:400;">分</span></div></div>' +
+        '<div class="fluid-cell"><div class="fluid-cell-val" style="color:' + oilColor + ';font-weight:700;">' + f.hydraulic_oil.score + ' <span class="text-sm muted" style="font-weight:400;">分</span></div></div>' +
+        '<div class="fluid-cell fluid-cell-grow"><div class="fluid-cell-val text-sm">' + f.verdict + '</div></div>' +
+        '<div class="fluid-status-pill ' + st.cls + '"><span class="dot" style="background:' + st.dot + ';"></span>' + st.label + '</div>' +
+        '<div class="fluid-toggle" aria-hidden="true"><span class="fluid-toggle-icon caret-down"></span></div>' +
+      '</div>';
+
+    // 化验指标统计
+    var totalsBar =
+      '<div class="fluid-totals">' +
+        '<div class="fluid-totals-title">化验指标统计 (Totals)</div>' +
+        '<div class="fluid-totals-pills">' +
+          (crit ? '<span class="fluid-tp fluid-tp-bad">' + crit + ' 项指标必须采取行动</span>' : '') +
+          (warn ? '<span class="fluid-tp fluid-tp-warn">' + warn + ' 项指标偏离基线</span>' : '') +
+          (norm ? '<span class="fluid-tp fluid-tp-good">' + norm + ' 项指标状态绿色基线</span>' : '') +
+        '</div>' +
+      '</div>';
+
+    // 详情表格
+    var detailRows = (f.details || []).map(function(d){
+      var sp = spectrumMap[d.spectrum] || spectrumMap.normal;
+      return '<tr class="fluid-d-row">' +
+        '<td class="fluid-d-part">' + d.part + '</td>' +
+        '<td class="fluid-d-code">' + d.code + '</td>' +
+        '<td>' + d.sampled_at + '</td>' +
+        '<td><span class="fluid-spectrum ' + sp.cls + '"><span class="dot"></span>' + sp.label + '</span></td>' +
+        '<td class="fluid-d-advice">' + d.advice + '</td>' +
+      '</tr>';
+    }).join("");
+
+    var body =
+      '<div class="fluid-card-body" id="fluid-body-' + idx + '">' +
+        totalsBar +
+        '<table class="fluid-detail-table">' +
+          '<thead><tr>' +
+            '<th>抽样核心部位</th>' +
+            '<th>化验流水编码</th>' +
+            '<th>最新抽样时刻</th>' +
+            '<th>光谱分析状态</th>' +
+            '<th>排故与专家决策治理建议</th>' +
+          '</tr></thead>' +
+          '<tbody>' + detailRows + '</tbody>' +
+        '</table>' +
+      '</div>';
+
+    return '<div class="fluid-card ' + st.cls + '" id="fluid-card-' + idx + '">' + head + body + '</div>';
+  }).join("");
+
+  document.getElementById("fluid-list").innerHTML = html ||
+    '<div class="card text-center muted" style="padding:48px;">暂无油品分析记录</div>';
+}
+
+function toggleFluidCard(idx) {
+  var card = document.getElementById("fluid-card-" + idx);
+  if (card) card.classList.toggle("expanded");
+}
+
+function renderInspectPanel() {
+  var allInsps = XCMG_DATA.inspections || [];
+  var listEl = document.getElementById("insp-list");
+  if (!listEl) return;
+
+  // 读取过滤条件
+  var qEl  = document.getElementById("insp-search");
+  var ovEl = document.getElementById("insp-overall-filter");
+  var asEl = document.getElementById("insp-asset-filter");
+  var dfEl = document.getElementById("insp-defect-filter");
+  var q  = qEl  ? qEl.value.trim().toLowerCase() : "";
+  var ov = ovEl ? ovEl.value : "";
+  var as = asEl ? asEl.value : "";
+  var df = dfEl ? dfEl.value : "";
+
+  var insps = allInsps.filter(function(insp) {
+    // 关键字：设备编号 / 型号 / 点检员
+    if (q) {
+      var hay = ((insp.asset_id || "") + " " + (insp.model || "") + " " + (insp.asset_name || "") + " " + (insp.inspector || "")).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    if (ov && insp.overall !== ov) return false;
+    if (as && (insp.asset_id || "").indexOf(as) !== 0) return false;
+    if (df) {
+      var t = insp.totals || { red:0, yellow:0, green:0, grey:0 };
+      if (df === "red"    && (t.red    || 0) <= 0) return false;
+      if (df === "yellow" && (t.yellow || 0) <= 0) return false;
+      if (df === "clean"  && ((t.red || 0) > 0 || (t.yellow || 0) > 0)) return false;
+    }
+    return true;
+  });
+
+  // 缺陷严重度映射
+  function sevPill(sev) {
+    var map = {
+      RED:    { cls:"insp-sev-red",    txt:"重大缺陷" },
+      YELLOW: { cls:"insp-sev-yellow", txt:"注意观察" },
+      GREEN:  { cls:"insp-sev-green",  txt:"常态正常" },
+      GREY:   { cls:"insp-sev-grey",   txt:"不涉及"   }
+    };
+    var m = map[sev] || map.GREY;
+    return '<span class="insp-sev ' + m.cls + '">' + m.txt + '</span>';
+  }
+
+  // 整体状态药丸（与设备状态药丸保持一致）
+  function overallPill(s) {
+    var map = {
+      normal:   { cls:"insp-asset-tag-normal",   txt:"正常"     },
+      warning:  { cls:"insp-asset-tag-warning",  txt:"注意观察" },
+      critical: { cls:"insp-asset-tag-critical", txt:"立即处置" }
+    };
+    var m = map[s] || map.normal;
+    return '<span class="insp-asset-tag ' + m.cls + '">' + m.txt + '</span>';
+  }
+
+  var totalForms = 0;
+  var html = insps.map(function(insp, idx) {
+    totalForms += (insp.form_count || 1);
+    var t = insp.totals || { red:0, yellow:0, green:0, grey:0 };
+
+    var summaryHtml =
+      '<div class="insp-summary-grid">' +
+        '<div class="insp-sb insp-sb-red"><b>' + t.red    + '</b><span>重大</span></div>' +
+        '<div class="insp-sb insp-sb-yellow"><b>' + t.yellow + '</b><span>注意</span></div>' +
+        '<div class="insp-sb insp-sb-green"><b>' + t.green  + '</b><span>常态</span></div>' +
+        '<div class="insp-sb insp-sb-grey"><b>' + t.grey   + '</b><span>不涉及</span></div>' +
+      '</div>';
+
+    // 详情表（明细）—— 仅展示卡片中给到的 items（每台 ~10 项代表性条目）
+    var detailRowsHtml = (insp.items || []).map(function(it) {
+      var rowCls = "";
+      if (it.severity === "RED")    rowCls = "insp-row-red";
+      if (it.severity === "YELLOW") rowCls = "insp-row-yellow";
+      return '<tr class="' + rowCls + '">' +
+        '<td class="insp-d-cat">' + (it.category || "") + '</td>' +
+        '<td class="insp-d-code">' + (it.item_code || "") + '</td>' +
+        '<td class="insp-d-sev">' + sevPill(it.severity) + '</td>' +
+        '<td class="insp-d-desc">' + (it.tech_desc || "") + '</td>' +
+        '<td class="insp-d-guide">' + (it.guide || "") + '</td>' +
+      '</tr>';
+    }).join('');
+
+    var bodyHtml =
+      '<div class="insp-card-body">' +
+        '<div class="insp-card-body-meta">' +
+          '<span>点检单号：<b>' + insp.id + '</b></span>' +
+          '<span>点检员：<b>' + insp.inspector + '</b></span>' +
+          '<span>整体结果：' + overallPill(insp.overall) + '</span>' +
+          '<span style="margin-left:auto;color:var(--xcmg-blue);font-size:12px;cursor:pointer;">查看完整点检单 →</span>' +
+        '</div>' +
+        '<table class="insp-detail-table">' +
+          '<thead><tr>' +
+            '<th>检查类别</th>' +
+            '<th>项目编码</th>' +
+            '<th>状态</th>' +
+            '<th>缺陷现场情况技术综合描述</th>' +
+            '<th>标准排故响应指南</th>' +
+          '</tr></thead>' +
+          '<tbody>' + detailRowsHtml + '</tbody>' +
+        '</table>' +
+      '</div>';
+
+    return '<div class="insp-card" id="insp-card-' + idx + '">' +
+      '<div class="insp-card-head" onclick="toggleInspCard(' + idx + ')">' +
+        '<div class="insp-toggle" aria-hidden="true"></div>' +
+        '<div class="insp-asset">' +
+          overallPill(insp.overall) +
+          '<div class="insp-asset-info">' +
+            '<div class="insp-asset-info-id">' + insp.asset_id + '</div>' +
+            '<div class="insp-asset-info-sub">' + (insp.model || insp.asset_name) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="insp-hours">' +
+          '<b>' + (insp.service_meter || 0).toLocaleString() + '</b><span class="insp-meter-unit">h</span>' +
+        '</div>' +
+        '<div class="insp-time">' + (insp.service_meter_time || insp.date) + '</div>' +
+        '<div class="insp-form-count"><b>' + (insp.form_count || 1) + '</b><span>单</span></div>' +
+        summaryHtml +
+        '<div class="insp-gps" title="' + (insp.gps || "") + '">' +
+          '<svg class="insp-gps-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">' +
+            '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/>' +
+          '</svg>' +
+          '<span class="insp-gps-txt">' + (insp.gps || "—") + '</span>' +
+        '</div>' +
+      '</div>' +
+      bodyHtml +
+    '</div>';
+  }).join('');
+
+  listEl.innerHTML = html;
+
+  var rn = document.getElementById("insp-render-num");
+  var rf = document.getElementById("insp-render-form");
+  if (rn) rn.textContent = insps.length;
+  if (rf) rf.textContent = totalForms;
+}
+
+function toggleInspCard(idx) {
+  var card = document.getElementById("insp-card-" + idx);
+  if (card) card.classList.toggle("expanded");
+}
+
+</script>
+</body>
+</html>

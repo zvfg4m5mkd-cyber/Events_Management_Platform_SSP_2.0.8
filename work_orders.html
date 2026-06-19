@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.wo.title">工单下发记录表</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+<style>
+  /* ---- 数据表通用：与 minecare_events.html 风格一致 ---- */
+  .data-table-card { padding: 0; overflow-x: auto; }
+  .data-table-card table { min-width: 2800px; }
+  .data-table-card th,
+  .data-table-card td {
+    white-space: nowrap;
+    font-size: 12.5px;
+    padding: 8px 10px;
+  }
+  .data-table-card td.col-wrap { white-space: normal; min-width: 220px; }
+  .wo-id-cell { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-secondary); }
+  .wo-time-cell { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+  /* 严重状态徽章（补 main.css 缺失的 critical 色） */
+  .al-st-tag.al-st-evt-critical {
+    background: rgba(229,57,53,.10); color: #C62828;
+  }
+  .al-st-tag.al-st-evt-critical .al-st-dot {
+    background: #E53935; box-shadow: 0 0 0 2px rgba(229,57,53,.18);
+  }
+  [data-theme="dark"] .al-st-tag.al-st-evt-critical {
+    background: rgba(239,83,80,.18); color: #EF9A9A;
+  }
+  /* 工单类型 / 优先级 徽章（与 mc-tag 同体系） */
+  .wo-tag {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:1px 8px; border-radius:10px; font-size:11.5px; font-weight:700;
+    border:1px solid var(--border-line); background: var(--bg-elev);
+    color: var(--text-secondary);
+  }
+  .wo-tag.tone-red    { color:#C62828; background:rgba(229,57,53,.10);  border-color:rgba(229,57,53,.40); }
+  .wo-tag.tone-orange { color:#EF6C00; background:rgba(251,140,0,.10);  border-color:rgba(251,140,0,.40); }
+  .wo-tag.tone-blue   { color:#1565C0; background:rgba(21,101,192,.10); border-color:rgba(21,101,192,.40); }
+  .wo-tag.tone-green  { color:#2E7D32; background:rgba(67,160,71,.10);  border-color:rgba(67,160,71,.40); }
+  .wo-tag.tone-grey   { color:#616161; background:rgba(128,128,128,.10);border-color:rgba(128,128,128,.40); }
+  /* SAP / WO ID 徽章 */
+  .wo-sap-tag {
+    display:inline-block;font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size:11.5px; padding:1px 8px; border-radius:6px;
+    background:rgba(67,160,71,.08); color:#2E7D32; border:1px solid rgba(67,160,71,.30);
+  }
+  [data-theme="dark"] .wo-sap-tag { color:#A5D6A7; background:rgba(67,160,71,.16); }
+</style>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <h1 data-i18n="page.wo.title">工单下发记录表</h1>
+      <div class="breadcrumb">首页 / 数据与管理 / 报表管理 / 工单下发记录表</div>
+    </div>
+    <div style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 14px;">
+      数据源：告警详情 → 生成工单流程下发的所有 SAP 工单（YEM 紧急 / YCO 纠正 / Nota 通知）
+    </div>
+
+    <!-- 过滤器 -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <input type="text" id="wo-search" placeholder="搜索工单号/SAP号/设备/主题/告警…" />
+      </div>
+      <select id="wo-period">
+        <option value="7d">最近 7 天</option>
+        <option value="30d" selected>最近 30 天</option>
+        <option value="90d">最近 90 天</option>
+        <option value="180d">最近 180 天</option>
+        <option value="all">全部周期</option>
+      </select>
+      <select id="wo-type">
+        <option value="" data-i18n="common.allTypes">全部类型</option>
+        <option value="YEM">YEM 紧急维修</option>
+        <option value="YCO">YCO 纠正性</option>
+        <option value="Nota">Nota 维修通知</option>
+      </select>
+      <select id="wo-prio">
+        <option value="" data-i18n="common.allPrio">全部优先级</option>
+        <option value="Alta">Alta 高</option>
+        <option value="Média">Média 中</option>
+        <option value="Baixa">Baixa 低</option>
+      </select>
+      <select id="wo-status">
+        <option value="" data-i18n="common.allStatus">全部状态</option>
+        <option value="dispatched">已下发</option>
+        <option value="processing">下发中</option>
+        <option value="draft">草稿</option>
+        <option value="failed">下发失败</option>
+      </select>
+      <button class="btn btn-sm" id="wo-export" style="margin-left:auto;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        导出
+      </button>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+      <div class="kpi-card accent-blue" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">本周期工单</div>
+        <div style="font-size:22px;font-weight:700;color:var(--xcmg-blue);"><span id="wo-kpi-total">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">条</span></div>
+      </div>
+      <div class="kpi-card accent-red" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">YEM 紧急</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-critical);" id="wo-kpi-yem">0</div>
+      </div>
+      <div class="kpi-card accent-orange" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">YCO 纠正</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-warning);" id="wo-kpi-yco">0</div>
+      </div>
+      <div class="kpi-card accent-green" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">已下发 SAP</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-normal);" id="wo-kpi-dispatched">0</div>
+      </div>
+    </div>
+
+    <!-- 数据表（22 列） -->
+    <div class="card data-table-card">
+      <table class="alert-table-v3">
+        <thead>
+          <tr>
+            <th>工单编号</th>
+            <th>工单类型</th>
+            <th>关联告警代码</th>
+            <th>关联告警 ID</th>
+            <th>设备编号</th>
+            <th>设备型号</th>
+            <th>维修类型</th>
+            <th>优先级</th>
+            <th>班组</th>
+            <th>计划日期</th>
+            <th>工作中心</th>
+            <th>控制中心</th>
+            <th>PTS 分配</th>
+            <th>工单主题</th>
+            <th>诊断主题</th>
+            <th>工单描述</th>
+            <th>处理建议</th>
+            <th>创建人</th>
+            <th>下发时间</th>
+            <th>校验状态</th>
+            <th>下发状态</th>
+            <th>SAP 编号</th>
+          </tr>
+        </thead>
+        <tbody id="wo-tbody"></tbody>
+      </table>
+      <div style="padding:10px 16px;border-top:1px solid var(--border-line);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:12.5px;color:var(--text-muted);">显示 <span id="wo-shown">0</span> 条 / 共 <span id="wo-total">0</span> 条记录</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">‹</span>
+          <span class="pg" style="border:1px solid var(--xcmg-blue);background:var(--xcmg-blue);color:#fff;border-radius:4px;padding:2px 8px;font-size:12px;">1</span>
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">›</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+/* ============== 数据准备：合并内置示例 + localStorage 累计 ============== */
+function woLoadAllRecords() {
+  var built = (window.XCMG_DATA && XCMG_DATA.workOrders) ? XCMG_DATA.workOrders.slice() : [];
+  var local = [];
+  try { var v = JSON.parse(localStorage.getItem("xcmg_wo_log_v1") || "[]"); if (Array.isArray(v)) local = v; }
+  catch(e){ local = []; }
+  /* localStorage 在前（最新），内置示例在后；按 wo_no 去重保留 localStorage 优先 */
+  var seen = {};
+  var merged = [];
+  local.concat(built).forEach(function(it){
+    if (!it || !it.wo_no) return;
+    if (seen[it.wo_no]) return;
+    seen[it.wo_no] = 1;
+    merged.push(it);
+  });
+  return merged;
+}
+var WO_ALL = woLoadAllRecords();
+
+// 周期基线：取 dispatch_time 最大值
+var WO_BASE_TS = 0;
+for (var i = 0; i < WO_ALL.length; i++) {
+  var t = new Date((WO_ALL[i].dispatch_time || "").replace(" ", "T")).getTime();
+  if (!isNaN(t) && t > WO_BASE_TS) WO_BASE_TS = t;
+}
+if (WO_BASE_TS === 0) WO_BASE_TS = Date.now();
+var DAY_MS = 86400000;
+
+/* ============== 工具函数 ============== */
+function escapeHtml(s) {
+  if (s == null) return "—";
+  return String(s).replace(/[&<>"']/g, function(c){
+    return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];
+  });
+}
+function cell(s)   { return "<td>" + (s == null || s === "" ? "—" : escapeHtml(s)) + "</td>"; }
+function wcell(s)  { return '<td class="col-wrap">' + (s == null || s === "" ? "—" : escapeHtml(s)) + "</td>"; }
+function tcell(s)  { return '<td><span class="wo-time-cell">' + (s == null || s === "" ? "—" : escapeHtml(s)) + "</span></td>"; }
+function idcell(s) { return '<td><span class="wo-id-cell">' + (s == null || s === "" ? "—" : escapeHtml(s)) + "</span></td>"; }
+function sapCell(s){ return '<td>' + (s ? '<span class="wo-sap-tag">' + escapeHtml(s) + '</span>' : "—") + '</td>'; }
+
+function typeTag(t) {
+  var map = {
+    YEM:  { txt: "YEM 紧急",  cls: "tone-red" },
+    YCO:  { txt: "YCO 纠正",  cls: "tone-orange" },
+    Nota: { txt: "Nota 通知", cls: "tone-blue" }
+  };
+  var s = map[t] || { txt: t || "—", cls: "tone-grey" };
+  return '<span class="wo-tag ' + s.cls + '">' + s.txt + '</span>';
+}
+function prioTag(p) {
+  var map = {
+    "Alta":  { txt: "Alta",  cls: "tone-red" },
+    "Média": { txt: "Média", cls: "tone-orange" },
+    "Baixa": { txt: "Baixa", cls: "tone-green" }
+  };
+  var s = map[p] || { txt: p || "—", cls: "tone-grey" };
+  return '<span class="wo-tag ' + s.cls + '">' + s.txt + '</span>';
+}
+function statusTag(st) {
+  var map = {
+    dispatched: { txt: "已下发",   cls: "al-st-evt-closed" },
+    processing: { txt: "下发中",   cls: "al-st-evt-progress" },
+    draft:      { txt: "草稿",     cls: "al-st-evt-pending" },
+    failed:     { txt: "下发失败", cls: "al-st-evt-critical" }
+  };
+  var s = map[st] || { txt: st || "—", cls: "al-st-evt-progress" };
+  return '<span class="al-st-tag ' + s.cls + '"><span class="al-st-dot"></span>' + s.txt + '</span>';
+}
+function valTag(v) {
+  var map = {
+    passed:  { txt: "已通过", cls: "tone-green" },
+    pending: { txt: "待校验", cls: "tone-orange" },
+    failed:  { txt: "未通过", cls: "tone-red" }
+  };
+  var s = map[v] || { txt: v || "—", cls: "tone-grey" };
+  return '<span class="wo-tag ' + s.cls + '">' + s.txt + '</span>';
+}
+
+/* ============== 过滤 / 渲染 ============== */
+function woApplyFilter() {
+  var kw     = (document.getElementById("wo-search").value || "").trim().toLowerCase();
+  var period = document.getElementById("wo-period").value;
+  var typ    = document.getElementById("wo-type").value;
+  var prio   = document.getElementById("wo-prio").value;
+  var status = document.getElementById("wo-status").value;
+
+  var maxDay = period === "7d"   ? 7
+             : period === "30d"  ? 30
+             : period === "90d"  ? 90
+             : period === "180d" ? 180
+             : Infinity;
+
+  var list = WO_ALL.filter(function(it){
+    if (typ    && it.type !== typ) return false;
+    if (prio   && it.prio !== prio) return false;
+    if (status && it.dispatch_status !== status) return false;
+    if (maxDay !== Infinity && WO_BASE_TS > 0) {
+      var ts = new Date((it.dispatch_time || "").replace(" ","T")).getTime();
+      if (isNaN(ts)) return false;
+      var diffDay = (WO_BASE_TS - ts) / DAY_MS;
+      if (diffDay > maxDay) return false;
+    }
+    if (kw) {
+      var hay = [it.wo_no, it.sap_no, it.asset_id, it.asset_name, it.subject,
+                 it.alert_code, it.alert_id, it.creator, it.trouble_subj].join(" ").toLowerCase();
+      if (hay.indexOf(kw) === -1) return false;
+    }
+    return true;
+  });
+
+  // 按下发时间倒序
+  list.sort(function(a,b){ return (b.dispatch_time || "").localeCompare(a.dispatch_time || ""); });
+
+  // KPI
+  document.getElementById("wo-kpi-total").textContent = list.length;
+  document.getElementById("wo-kpi-yem").textContent   = list.filter(function(x){ return x.type === "YEM"; }).length;
+  document.getElementById("wo-kpi-yco").textContent   = list.filter(function(x){ return x.type === "YCO"; }).length;
+  document.getElementById("wo-kpi-dispatched").textContent = list.filter(function(x){ return x.dispatch_status === "dispatched"; }).length;
+
+  // 表格
+  var tbody = document.getElementById("wo-tbody");
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="22" style="text-align:center;padding:40px;color:var(--text-muted);">没有匹配的工单</td></tr>';
+  } else {
+    tbody.innerHTML = list.map(function(it){
+      return '<tr>' +
+        idcell(it.wo_no) +
+        '<td>' + typeTag(it.type) + '</td>' +
+        cell(it.alert_code) +
+        idcell(it.alert_id) +
+        cell(it.asset_id) +
+        cell(it.asset_name) +
+        cell(it.repair) +
+        '<td>' + prioTag(it.prio) + '</td>' +
+        cell(it.turma) +
+        tcell(it.plan_date) +
+        cell(it.work_center) +
+        cell(it.ctrl_center) +
+        cell(it.pts) +
+        wcell(it.subject) +
+        wcell(it.trouble_subj) +
+        wcell(it.desc) +
+        wcell(it.recom) +
+        cell(it.creator) +
+        tcell(it.dispatch_time) +
+        '<td>' + valTag(it.validate_status) + '</td>' +
+        '<td>' + statusTag(it.dispatch_status) + '</td>' +
+        sapCell(it.sap_no) +
+      '</tr>';
+    }).join("");
+  }
+  document.getElementById("wo-shown").textContent = list.length;
+  document.getElementById("wo-total").textContent = list.length;
+}
+
+/* ============== 初始化 ============== */
+document.addEventListener("DOMContentLoaded", function(){
+  XCMG_NAV.mount("data-rpt-wo");
+  ["wo-period","wo-type","wo-prio","wo-status"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", woApplyFilter);
+  });
+  document.getElementById("wo-search").addEventListener("input", woApplyFilter);
+  document.getElementById("wo-export").addEventListener("click", function(){ alert("（原型）将导出当前过滤结果为 CSV"); });
+  woApplyFilter();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.monitor.select.title">实时监控信息选择</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+
+    <!-- 面包屑 -->
+    <div class="page-title" style="padding-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h1 id="ms-page-h1" style="font-size:18px;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span id="ms-page-h1-text">实时监控信息选择</span>
+          <span class="ms-status-pill ms-status-on" title="网络心跳 PING 链路状态">
+            <span class="ms-status-dot"></span>正常在线
+          </span>
+        </h1>
+        <div class="breadcrumb">首页 / <a href="fleet.html" style="color:var(--xcmg-blue);text-decoration:none;">资产中心</a> / <a id="bc-back" href="#" style="color:var(--xcmg-blue);text-decoration:none;">设备详情</a> / 实时监控信息选择</div>
+      </div>
+      <div class="ad-action-bar">
+        <button class="ad-act-export" onclick="openExportDialog()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          监控历史数据导出
+        </button>
+        <button class="ad-act-monitor ad-act-primary" id="btn-start" onclick="startMonitor()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          开始实时监测
+        </button>
+      </div>
+    </div>
+
+    <!-- 顶部车辆基本信息条 -->
+    <div class="ms-info-bar" id="ms-info-bar"></div>
+
+    <!-- 中段筛选 -->
+    <div class="ms-filter">
+      <div class="msf-cell">
+        <label>🛠 诊断模型模板</label>
+        <select id="msf-model">
+          <option>全部传感器参数大类</option>
+          <option>动力总成专用模板</option>
+          <option>润滑/油液健康模板</option>
+          <option>胎压温度专用模板</option>
+        </select>
+      </div>
+      <div class="msf-cell">
+        <label>🎧 临时监听会话</label>
+        <select id="msf-session">
+          <option>暂不应用已有会话模板</option>
+          <option>S-2026-0612-动力联调</option>
+          <option>S-2026-0610-油品异常排查</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 标题：车辆底层数据接口与硬件传感器测点映射绑定 -->
+    <div class="ms-section-title">
+      <span class="mst-ic">💡</span>
+      车辆底层数据接口与硬件传感器测点映射绑定
+    </div>
+
+    <!-- 主体：左总线 + 右通道勾选 -->
+    <div class="ms-grid">
+      <!-- 左 -->
+      <div class="ms-bus-col">
+        <div class="ms-step-label">1. 选择车载硬件协议总线</div>
+        <div class="ms-bus-list" id="ms-bus-list"></div>
+      </div>
+      <!-- 右 -->
+      <div class="ms-ch-col">
+        <div class="ms-step-label">2. 勾选需要挂载实时监听的传感器通道</div>
+        <div class="ms-ch-table">
+          <table class="ms-table">
+            <thead>
+              <tr>
+                <th style="width:40px;"><input type="checkbox" id="ms-ch-all"></th>
+                <th>参数标准映射别名</th>
+                <th>矿用总线接口描述</th>
+                <th style="width:110px;">OEM 原始计量单位</th>
+                <th style="width:110px;">用户首选单位</th>
+                <th style="width:80px;">采样转换系数</th>
+              </tr>
+            </thead>
+            <tbody id="ms-ch-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 中部挂载按钮 -->
+    <div class="ms-mount-row">
+      <button class="ms-mount-btn ms-mount-add" onclick="mountSelected()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+        将勾选传感器挂载至实时监听流
+      </button>
+      <button class="ms-mount-btn ms-mount-rm" onclick="unmountSelected()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;"><polyline points="7 11 12 6 17 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+        移除选定监听测点
+      </button>
+      <button class="ms-mount-btn ms-mount-tpl" onclick="openTplDialog()" title="将当前的诊断模型 / 临时会话 / 总线 / 已勾选通道保存为可复用模板">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        存为模板
+      </button>
+    </div>
+
+    <!-- 底部：当前正在捕获执行的实时数据流列表 -->
+    <div class="ms-section-title" style="margin-top:14px;">
+      <span class="mst-ic">📡</span>
+      当前正在捕获执行的实时数据流列表
+      <span class="mst-count" id="ms-active-count">0 条</span>
+    </div>
+    <div class="ms-active-table">
+      <table class="ms-table">
+        <thead>
+          <tr>
+            <th style="width:32px;">#</th>
+            <th>已激活测点别名</th>
+            <th>物理通道总线接口来源</th>
+            <th>因果诊断机理描述</th>
+            <th style="width:110px;">数据吞吐频率</th>
+            <th style="width:60px;"></th>
+          </tr>
+        </thead>
+        <tbody id="ms-active-tbody"></tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<!-- ============= 历史数据导出·模态框 ============= -->
+<div class="exp-modal" id="exp-modal" onclick="if(event.target===this)closeExportDialog()">
+  <div class="exp-card">
+    <div class="exp-head">
+      <span class="exp-head-icon">📥</span>
+      <span class="exp-head-title">监控历史数据导出</span>
+      <span class="exp-head-sub">从底层时序库回溯指定区间的传感器测点数据</span>
+      <span class="exp-close" onclick="closeExportDialog()" title="关闭">✕</span>
+    </div>
+    <div class="exp-body">
+      <div class="exp-row">
+        <div class="exp-cell">
+          <label class="exp-label">⏰ 起始时间</label>
+          <input type="datetime-local" id="exp-start" class="exp-input">
+        </div>
+        <div class="exp-cell">
+          <label class="exp-label">⏰ 终止时间</label>
+          <input type="datetime-local" id="exp-end" class="exp-input">
+        </div>
+        <div class="exp-cell">
+          <label class="exp-label">📊 采样频率</label>
+          <select id="exp-freq" class="exp-input">
+            <option value="60">每 1 分钟一个采样点</option>
+            <option value="600">每 10 分钟一个采样点</option>
+            <option value="3600" selected>每 1 小时一个采样点</option>
+            <option value="86400">每 1 天一个采样点</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="exp-quick-row">
+        <span class="exp-quick-tag" onclick="expSetRange(1)">最近 24 小时</span>
+        <span class="exp-quick-tag" onclick="expSetRange(7)">最近 7 天</span>
+        <span class="exp-quick-tag" onclick="expSetRange(30)">最近 30 天</span>
+        <span class="exp-quick-tag" onclick="expSetRange(90)">最近 90 天</span>
+      </div>
+
+      <div class="exp-section-title">
+        <span><span class="mst-ic">✅</span> 勾选需要导出的传感器测点参数</span>
+        <span class="exp-quick">
+          <a onclick="expSelectAll(true)">全选</a>
+          <span style="color:#94A3B8;">·</span>
+          <a onclick="expSelectAll(false)">全不选</a>
+          <span style="color:#94A3B8;">·</span>
+          <a onclick="expSelectActive()">仅勾选已挂载</a>
+        </span>
+      </div>
+      <div class="exp-ch-list" id="exp-ch-list"></div>
+
+      <div class="exp-summary" id="exp-summary"></div>
+    </div>
+    <div class="exp-foot">
+      <button class="exp-btn exp-btn-cancel" onclick="closeExportDialog()">取消</button>
+      <button class="exp-btn exp-btn-ok" onclick="doExport()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        生成并下载 Excel 文件
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============= 存为模板·模态框 ============= -->
+<div class="exp-modal" id="tpl-modal" onclick="if(event.target===this)closeTplDialog()">
+  <div class="exp-card" style="max-width:560px;">
+    <div class="exp-head">
+      <span class="exp-head-icon">💾</span>
+      <span class="exp-head-title">存为监测模板</span>
+      <span class="exp-head-sub">将当前选择的参数组合保存为可复用模板</span>
+      <span class="exp-close" onclick="closeTplDialog()" title="关闭">✕</span>
+    </div>
+    <div class="exp-body">
+      <div class="exp-row" style="margin-bottom:14px;">
+        <div class="exp-cell" style="flex:1 1 100%;">
+          <label class="exp-label">📛 模板名称</label>
+          <input type="text" id="tpl-name" class="exp-input" placeholder="例如：动力总成-高频联调-2026Q2" maxlength="40">
+        </div>
+      </div>
+      <div class="exp-row" style="margin-bottom:14px;">
+        <div class="exp-cell" style="flex:1 1 30%;">
+          <label class="exp-label">🏷 模板分类</label>
+          <select id="tpl-cat" class="exp-input">
+            <option value="powertrain">动力总成</option>
+            <option value="lubrication">润滑/油液</option>
+            <option value="hydraulic">液压系统</option>
+            <option value="tire">胎压温度</option>
+            <option value="custom" selected>自定义</option>
+          </select>
+        </div>
+        <div class="exp-cell" style="flex:1 1 65%;">
+          <label class="exp-label">📝 备注</label>
+          <input type="text" id="tpl-remark" class="exp-input" placeholder="给协作同事一句话说明，可留空" maxlength="60">
+        </div>
+      </div>
+
+      <div class="exp-section-title" style="margin-bottom:6px;">
+        <span><span class="mst-ic">📦</span> 即将保存的参数快照</span>
+      </div>
+      <div class="tpl-preview" id="tpl-preview">
+        <!-- JS 渲染 -->
+      </div>
+
+      <div class="exp-section-title" style="margin-top:14px;margin-bottom:6px;">
+        <span><span class="mst-ic">📚</span> 已保存模板</span>
+        <span class="exp-quick">
+          <a onclick="tplApplyLatest()">应用最新</a>
+          <span style="color:#94A3B8;">·</span>
+          <a onclick="tplClearAll()">清空全部</a>
+        </span>
+      </div>
+      <div class="tpl-list" id="tpl-list">
+        <!-- JS 渲染 -->
+      </div>
+    </div>
+    <div class="exp-foot">
+      <button class="exp-btn exp-btn-cancel" onclick="closeTplDialog()">取消</button>
+      <button class="exp-btn exp-btn-go" onclick="saveTpl()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><polyline points="20 6 9 17 4 12"/></svg>
+        保存模板
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+/* —————————————————————————————
+   实时监控信息选择
+   ————————————————————————————— */
+
+function getQ(name) {
+  var m = new RegExp("[?&]" + name + "=([^&]*)").exec(window.location.search);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+var ASSET_ID = getQ("id") || "XE5600-001";
+var ASSET = window.XCMG_DATA.getAssetById(ASSET_ID);
+var FLEET_INFO = window.XCMG_DATA.fleetOfAsset(ASSET_ID);
+
+var STATE = {
+  selectedBus: "bus-vims",     // 当前选中的总线
+  checked: {},                 // checked[chId] = true
+  active: ["ch-engine-rpm","ch-oil-pressure","ch-oil-filter-dp"]  // 默认 3 条已挂载
+};
+
+document.addEventListener("DOMContentLoaded", function(){
+  XCMG_NAV.mount("fleet");
+  if (!ASSET) {
+    document.querySelector(".app-main").innerHTML = '<div style="padding:40px;color:var(--text-muted);">未找到设备：' + ASSET_ID + '</div>';
+    return;
+  }
+  document.title = ASSET.name + " - 实时监控信息选择";
+  document.getElementById("ms-page-h1-text").textContent = "实时监控信息选择 · " + ASSET.name + "-001";
+  document.getElementById("bc-back").href = "asset_detail.html?id=" + ASSET_ID;
+
+  renderInfoBar();
+  renderBusList();
+  renderChannelTable();
+  renderActiveTable();
+
+  document.getElementById("ms-ch-all").addEventListener("change", function(e){
+    var on = e.target.checked;
+    document.querySelectorAll(".ms-ch-cb").forEach(function(cb){
+      cb.checked = on;
+      STATE.checked[cb.value] = on;
+    });
+  });
+});
+
+/* —— 顶部信息条 —— */
+function renderInfoBar() {
+  var driverByModel = {
+    "XE5600":   "MARCOS ANTÔNIO FERREIRA",
+    "XE2000":   "JOILTON SEREJO",
+    "GR5505":   "HIARA DE JESUS LIMA",
+    "LW1200KN": "陈志远",
+    "LW1000KN": "孙家辉"
+  };
+  var loadByDispatch = {
+    working:     '<span style="color:#43A047;">满载装车作业</span>',
+    ready:       '<span style="color:#43A047;">空载就绪 · 待派</span>',
+    locked:      '<span style="color:#FB8C00;">运行延误 · 等待解锁</span>',
+    maintenance: '<span style="color:#9E9E9E;">现场停机维修</span>'
+  };
+  var fields = [
+    ["设备自编号",       ASSET.name + "-001"],
+    ["设备所属群组",     FLEET_INFO.group + " · 重型运输车群"],
+    ["机械资产型号",     ASSET.model + "  · " + (ASSET.spec||"")],
+    ["归属运输车队",     FLEET_INFO.fleet || "—"],
+    ["当前当班驾驶员",   driverByModel[ASSET.model] || "MARCOS ANTÔNIO FERREIRA"],
+    ["物理作业面定位",   "北区4号主装载供料点 · " + ASSET.location],
+    ["实时调度载重",     loadByDispatch[ASSET.dispatch_status] || loadByDispatch.working],
+    ["调度事件响应级别", "常规保障级别 4"],
+    ["下一流向预测",     "目的地确认中"],
+    ["末次调度发送时刻", "2026-06-18 13:48:31"],
+    ["末次事件更新时刻", ASSET.last_alarm_time],
+    ["高精全球GPS坐标",  "590498.172749 ；9325232.748187"]
+  ];
+  var html = '';
+  fields.forEach(function(f){
+    html += '<div class="ms-fld">' +
+      '<div class="ms-fld-lab">' + f[0] + '</div>' +
+      '<div class="ms-fld-val">' + f[1] + '</div>' +
+    '</div>';
+  });
+  // 右侧资产快照
+  var photoMap = {
+    "XE5600":   "assets/equipment/XE5600.jpg",
+    "XE2000":   "assets/equipment/XE2000.jpg",
+    "LW1200KN": "assets/equipment/LW1200KN.jpg",
+    "LW1000KN": "assets/equipment/LW1000KN.jpg",
+    "GR5505":   "assets/equipment/GR5505.jpg"
+  };
+  var photoUrl = photoMap[ASSET.model] || "assets/equipment/XE5600.jpg";
+  html += '<div class="ms-fld ms-snapshot">' +
+    '<div class="ms-snap-photo"><img src="' + photoUrl + '" alt="' + ASSET.model + '" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<div class=ms-snap-emoji>🚜</div>\';"></div>' +
+    '<div class="ms-snap-name">' + ASSET.model + '</div>' +
+    '<div class="ms-snap-tip">现场资产实物快照</div>' +
+  '</div>';
+  document.getElementById("ms-info-bar").innerHTML = html;
+}
+
+/* —— 总线列表 —— */
+function renderBusList() {
+  var list = window.XCMG_DATA.monitor_channels.bus_options;
+  var html = list.map(function(b){
+    var active = (STATE.selectedBus === b.id) ? "is-active" : "";
+    return '<div class="ms-bus-item ' + active + '" onclick="selectBus(\'' + b.id + '\')">' +
+      '<div class="msbi-name">' + b.name + '</div>' +
+      '<div class="msbi-desc">' + b.desc + '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById("ms-bus-list").innerHTML = html;
+}
+
+function selectBus(busId) {
+  STATE.selectedBus = busId;
+  renderBusList();
+  renderChannelTable();
+}
+
+/* —— 通道表 —— */
+function renderChannelTable() {
+  var all = window.XCMG_DATA.monitor_channels.channels;
+  var list = all.filter(function(c){ return c.bus === STATE.selectedBus; });
+  var html = list.map(function(c){
+    var checked = STATE.checked[c.id] ? "checked" : "";
+    return '<tr>' +
+      '<td><input type="checkbox" class="ms-ch-cb" value="' + c.id + '" ' + checked +
+        ' onchange="STATE.checked[this.value]=this.checked;"></td>' +
+      '<td><strong>' + c.name + '</strong></td>' +
+      '<td>' + c.desc + '</td>' +
+      '<td>' + c.oem_unit + ' (' + c.unit + ')</td>' +
+      '<td>' + c.oem_unit + ' (' + c.unit + ')</td>' +
+      '<td>1.0</td>' +
+    '</tr>';
+  }).join('');
+  if (!list.length) html = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px 0;">该总线下暂无可挂载的传感器通道</td></tr>';
+  document.getElementById("ms-ch-tbody").innerHTML = html;
+  document.getElementById("ms-ch-all").checked = false;
+}
+
+/* —— 已挂载列表 —— */
+function renderActiveTable() {
+  var all = window.XCMG_DATA.monitor_channels.channels;
+  var rows = STATE.active.map(function(id, idx){
+    var c = all.filter(function(x){return x.id===id;})[0];
+    if (!c) return '';
+    var bus = window.XCMG_DATA.monitor_channels.bus_options.filter(function(b){return b.id===c.bus;})[0];
+    return '<tr>' +
+      '<td>' + (idx+1) + '</td>' +
+      '<td><span class="ms-active-dot" style="background:' + c.color + ';"></span><strong>' + c.name + '</strong></td>' +
+      '<td>' + (bus ? bus.name : "—") + '</td>' +
+      '<td>' + c.desc + '</td>' +
+      '<td>1 赫兹（每秒一次）</td>' +
+      '<td><span class="ms-active-rm" onclick="removeOne(\'' + c.id + '\')" title="移除">✕</span></td>' +
+    '</tr>';
+  }).join('');
+  if (!STATE.active.length) rows = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px 0;">💡 暂无更多挂载参数，请在上方勾选并添加…</td></tr>';
+  document.getElementById("ms-active-tbody").innerHTML = rows;
+  document.getElementById("ms-active-count").textContent = STATE.active.length + " 条";
+}
+
+/* —— 挂载/移除 —— */
+function mountSelected() {
+  var ids = Object.keys(STATE.checked).filter(function(k){ return STATE.checked[k]; });
+  if (!ids.length) { alert("请先在上方表格勾选要挂载的传感器通道"); return; }
+  ids.forEach(function(id){
+    if (STATE.active.indexOf(id) === -1) STATE.active.push(id);
+  });
+  // 清空勾选
+  STATE.checked = {};
+  renderChannelTable();
+  renderActiveTable();
+}
+
+function unmountSelected() {
+  var ids = Object.keys(STATE.checked).filter(function(k){ return STATE.checked[k]; });
+  if (!ids.length) { alert("请先勾选要移除的通道"); return; }
+  STATE.active = STATE.active.filter(function(x){ return ids.indexOf(x) === -1; });
+  STATE.checked = {};
+  renderChannelTable();
+  renderActiveTable();
+}
+
+function removeOne(id) {
+  STATE.active = STATE.active.filter(function(x){ return x !== id; });
+  renderActiveTable();
+}
+
+/* —— 进入实时监测 —— */
+function startMonitor() {
+  if (!STATE.active.length) { alert("请先至少挂载一条监听通道"); return; }
+  var url = "monitor_chart.html?id=" + encodeURIComponent(ASSET_ID) +
+    "&channels=" + encodeURIComponent(STATE.active.join(","));
+  window.location.href = url;
+}
+
+/* —————————————————————————————
+   v1.9.1 历史数据导出
+   ————————————————————————————— */
+
+function _pad2(n){ return n<10 ? "0"+n : ""+n; }
+function fmtDtLocal(d){
+  return d.getFullYear()+"-"+_pad2(d.getMonth()+1)+"-"+_pad2(d.getDate())+
+    "T"+_pad2(d.getHours())+":"+_pad2(d.getMinutes());
+}
+function fmtTimestamp(d){
+  return d.getFullYear()+"-"+_pad2(d.getMonth()+1)+"-"+_pad2(d.getDate())+
+    " "+_pad2(d.getHours())+":"+_pad2(d.getMinutes())+":"+_pad2(d.getSeconds());
+}
+function fmtTsForFile(d){
+  return d.getFullYear()+_pad2(d.getMonth()+1)+_pad2(d.getDate())+
+    "-"+_pad2(d.getHours())+_pad2(d.getMinutes())+_pad2(d.getSeconds());
+}
+function secLabel(sec){
+  return ({60:"每 1 分钟", 600:"每 10 分钟", 3600:"每 1 小时", 86400:"每 1 天"})[sec] || ("每 "+sec+" 秒");
+}
+
+function openExportDialog() {
+  // 默认时间区间：过去 7 天
+  expSetRange(7);
+  // 渲染通道勾选列表
+  renderExpChList();
+  updateExpSummary();
+  document.getElementById("exp-modal").style.display = "flex";
+}
+function closeExportDialog(){
+  document.getElementById("exp-modal").style.display = "none";
+}
+
+function expSetRange(days){
+  var end = new Date();
+  var start = new Date(end.getTime() - days*24*3600*1000);
+  document.getElementById("exp-start").value = fmtDtLocal(start);
+  document.getElementById("exp-end").value = fmtDtLocal(end);
+  // 高亮快捷标签
+  document.querySelectorAll(".exp-quick-tag").forEach(function(t){
+    t.classList.remove("is-active");
+    if (t.textContent.indexOf(days===1?"24":days+" ")!==-1) t.classList.add("is-active");
+  });
+  updateExpSummary();
+}
+
+function renderExpChList(){
+  var channels = window.XCMG_DATA.monitor_channels.channels;
+  var bus_options = window.XCMG_DATA.monitor_channels.bus_options;
+  var html = channels.map(function(c){
+    var bus = bus_options.filter(function(b){return b.id===c.bus;})[0];
+    var checked = STATE.active.indexOf(c.id) !== -1 ? "checked" : "";
+    return '<label class="exp-ch-item">' +
+      '<input type="checkbox" class="exp-ch-cb" value="'+c.id+'" '+checked+' onchange="updateExpSummary()">' +
+      '<span class="exp-ch-dot" style="background:'+c.color+';"></span>' +
+      '<span class="exp-ch-info">' +
+        '<span class="exp-ch-name">'+c.name+'</span>' +
+        '<span class="exp-ch-meta">'+ (bus?bus.name:"—") +' · 基线 '+c.baseline+' '+c.unit+'</span>' +
+      '</span>' +
+      '<span class="exp-ch-unit">'+c.unit+'</span>' +
+    '</label>';
+  }).join("");
+  document.getElementById("exp-ch-list").innerHTML = html;
+}
+
+function expSelectAll(on){
+  document.querySelectorAll(".exp-ch-cb").forEach(function(cb){ cb.checked = !!on; });
+  updateExpSummary();
+}
+function expSelectActive(){
+  document.querySelectorAll(".exp-ch-cb").forEach(function(cb){
+    cb.checked = STATE.active.indexOf(cb.value) !== -1;
+  });
+  updateExpSummary();
+}
+
+function updateExpSummary(){
+  var startVal = document.getElementById("exp-start").value;
+  var endVal   = document.getElementById("exp-end").value;
+  var freqSec  = parseInt(document.getElementById("exp-freq").value);
+  var nCh      = document.querySelectorAll(".exp-ch-cb:checked").length;
+  var box = document.getElementById("exp-summary");
+  if (!startVal || !endVal) { box.innerHTML = '<span style="color:#FB8C00;">⚠ 请选择有效的时间区间</span>'; return; }
+  var s = new Date(startVal), e = new Date(endVal);
+  if (e <= s) { box.innerHTML = '<span style="color:#E53935;">⚠ 终止时间必须晚于起始时间</span>'; return; }
+  var nPoints = Math.floor((e-s)/1000/freqSec) + 1;
+  var totalCells = nPoints * nCh;
+  var warn = "";
+  if (totalCells > 200000) warn = ' <span style="color:#FB8C00;">（数据量较大，导出可能耗时）</span>';
+  box.innerHTML =
+    '📋 待导出汇总：共 <strong>'+nCh+'</strong> 个通道 × <strong>'+nPoints.toLocaleString()+'</strong> 条记录 = ' +
+    '<strong>'+totalCells.toLocaleString()+'</strong> 个数据格 · 采样频率 '+secLabel(freqSec) + warn;
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+  // 监听时间/频率变化更新摘要
+  ["exp-start","exp-end","exp-freq"].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("change", updateExpSummary);
+  });
+});
+
+function doExport(){
+  var startVal = document.getElementById("exp-start").value;
+  var endVal   = document.getElementById("exp-end").value;
+  if (!startVal || !endVal) { alert("请选择起始和终止时间"); return; }
+  var start = new Date(startVal), end = new Date(endVal);
+  if (end <= start) { alert("终止时间必须晚于起始时间"); return; }
+
+  var freqSec = parseInt(document.getElementById("exp-freq").value);
+  var checkedIds = Array.prototype.slice.call(document.querySelectorAll(".exp-ch-cb:checked"))
+    .map(function(cb){ return cb.value; });
+  if (!checkedIds.length) { alert("请至少勾选一个待导出参数"); return; }
+
+  var allChannels = window.XCMG_DATA.monitor_channels.channels;
+  var picked = checkedIds.map(function(id){
+    return allChannels.filter(function(c){return c.id===id;})[0];
+  }).filter(Boolean);
+
+  var totalSec = Math.floor((end - start) / 1000);
+  var nPoints = Math.floor(totalSec / freqSec) + 1;
+  if (nPoints > 100000) {
+    if (!confirm("预计将生成 "+nPoints.toLocaleString()+" 行数据，文件可能较大且生成耗时，是否继续？")) return;
+  }
+
+  // —— 表头
+  var headers = ["时间戳"].concat(picked.map(function(c){ return c.name + " (" + c.unit + ")"; }));
+
+  // —— 行数据：随机游走 + baseline 回归
+  var prev = picked.map(function(c){ return c.baseline; });
+  var rows = [];
+  for (var i=0; i<nPoints; i++) {
+    var t = new Date(start.getTime() + i*freqSec*1000);
+    var row = [fmtTimestamp(t)];
+    for (var j=0; j<picked.length; j++) {
+      var c = picked[j];
+      var drift = (Math.random()*2 - 1) * c.jitter;
+      var pull  = (c.baseline - prev[j]) * 0.15;
+      var v = prev[j] + drift + pull;
+      // 偶发偏离（5% 概率）
+      if (Math.random() < 0.05) v += (Math.random()*2 - 1) * c.jitter * 1.5;
+      prev[j] = v;
+      row.push(v.toFixed(2));
+    }
+    rows.push(row);
+  }
+
+  // —— 拼 SpreadsheetML（HTML Workbook 形式，Excel 可直接打开）
+  var XMLNS = 'xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"';
+  var SHEET_META = '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>历史监测数据</x:Name><x:WorksheetOptions><x:DisplayGridlines/><x:FreezePanes/><x:FrozenNoSplit/><x:SplitHorizontal>3</x:SplitHorizontal><x:TopRowBottomPane>3</x:TopRowBottomPane><x:ActivePane>2</x:ActivePane></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->';
+  var html = '<html '+XMLNS+'><head><meta charset="UTF-8">'+SHEET_META+'<style>td,th{border:0.5pt solid #C0C0C0;font-family:"PingFang SC","Microsoft YaHei",Arial;font-size:11pt;padding:3px 8px;}</style></head><body><table cellspacing="0">';
+
+  // 元信息：合并表头 2 行
+  html += '<tr><td colspan="'+headers.length+'" style="background:#0070D6;color:#FFFFFF;font-size:14pt;font-weight:bold;text-align:center;padding:10px;">'+
+    '设备 '+ASSET.name+'-001 ('+ASSET.model+') · 监控历史数据导出</td></tr>';
+  html += '<tr><td colspan="'+headers.length+'" style="background:#F0F4FA;color:#444;font-size:10pt;">'+
+    '导出区间：'+fmtTimestamp(start)+' ～ '+fmtTimestamp(end)+
+    '   ·   采样频率：'+secLabel(freqSec)+
+    '   ·   通道数：'+picked.length+
+    '   ·   记录数：'+rows.length.toLocaleString()+
+    '   ·   导出时刻：'+fmtTimestamp(new Date())+'</td></tr>';
+
+  // 表头
+  html += '<tr>' + headers.map(function(h){
+    return '<th style="background:#1976D2;color:#FFFFFF;font-weight:bold;text-align:center;">'+h+'</th>';
+  }).join("") + '</tr>';
+
+  // 数据
+  for (var k=0; k<rows.length; k++) {
+    var bg = (k%2===0) ? '' : ' style="background:#F8FAFD;"';
+    html += '<tr'+bg+'>';
+    for (var m=0; m<rows[k].length; m++) {
+      var cell = rows[k][m];
+      if (m === 0) {
+        html += '<td style="white-space:nowrap;color:#5A6478;font-family:Consolas,monospace;">'+cell+'</td>';
+      } else {
+        html += '<td style="text-align:right;font-family:Consolas,monospace;">'+cell+'</td>';
+      }
+    }
+    html += '</tr>';
+  }
+  html += '</table></body></html>';
+
+  // —— 触发下载
+  var blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var fname = '历史监测数据_' + ASSET.name + '-001_' + fmtTsForFile(new Date()) + '.xls';
+  var a = document.createElement('a');
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+
+  closeExportDialog();
+  alert('✓ 导出成功！\n\n文件名：' + fname +
+        '\n通道数：' + picked.length +
+        '\n记录数：' + rows.length.toLocaleString() +
+        '\n采样频率：' + secLabel(freqSec));
+}
+
+/* ===========================================================
+   存为模板
+   - 把当前 [诊断模型 / 临时会话 / 选中总线 / 已勾选通道 / 已挂载流]
+     做成一个模板对象，存到 localStorage（key=ms_tpl_v1）
+   - 支持回填：选择列表中的某条 → 还原 select / checkbox / active
+   =========================================================== */
+var TPL_STORE_KEY = "ms_tpl_v1";
+
+function tplLoadAll() {
+  try {
+    var raw = localStorage.getItem(TPL_STORE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+function tplSaveAll(arr) {
+  try { localStorage.setItem(TPL_STORE_KEY, JSON.stringify(arr)); } catch(e) {}
+}
+
+function tplCollectSnapshot() {
+  // 收集当前选择
+  var modelSel  = document.getElementById("msf-model");
+  var sessSel   = document.getElementById("msf-session");
+  var busOpts   = (window.XCMG_DATA.monitor_channels.bus_options) || [];
+  var curBus    = (busOpts.find(function(b){return b.id===STATE.selectedBus;}) || {}).name || STATE.selectedBus;
+
+  // 已勾选的通道
+  var checkedIds = Object.keys(STATE.checked).filter(function(k){ return STATE.checked[k]; });
+  var allCh = (window.XCMG_DATA.monitor_channels.channels) || [];
+  var checkedNames = checkedIds.map(function(id){
+    var c = allCh.find(function(x){return x.id===id;});
+    return c ? c.name : id;
+  });
+
+  // 已挂载的流
+  var activeNames = STATE.active.map(function(id){
+    var c = allCh.find(function(x){return x.id===id;});
+    return c ? c.name : id;
+  });
+
+  return {
+    model:    modelSel ? modelSel.value : "",
+    session:  sessSel ? sessSel.value : "",
+    bus:      STATE.selectedBus,
+    busName:  curBus,
+    checked:  checkedIds,
+    checkedNames: checkedNames,
+    active:   STATE.active.slice(),
+    activeNames: activeNames,
+    asset:    ASSET ? (ASSET.name + "-001") : ""
+  };
+}
+
+function openTplDialog() {
+  // 默认模板名带时间戳
+  var d = new Date();
+  var pad = function(n){return n<10?'0'+n:n;};
+  var def = (ASSET ? ASSET.name : "DEV") + "-模板-" +
+            d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + "-" +
+            pad(d.getHours()) + pad(d.getMinutes());
+  document.getElementById("tpl-name").value = def;
+  document.getElementById("tpl-remark").value = "";
+  document.getElementById("tpl-cat").value = "custom";
+  tplRenderPreview();
+  tplRenderList();
+  document.getElementById("tpl-modal").style.display = "flex";
+}
+function closeTplDialog() {
+  document.getElementById("tpl-modal").style.display = "none";
+}
+
+function tplRenderPreview() {
+  var snap = tplCollectSnapshot();
+  var html = '';
+  html += '<div class="tpl-pv-row"><span class="tpl-pv-lab">设备：</span><span class="tpl-pv-val">'+ snap.asset +'</span></div>';
+  html += '<div class="tpl-pv-row"><span class="tpl-pv-lab">诊断模型：</span><span class="tpl-pv-val">'+ snap.model +'</span></div>';
+  html += '<div class="tpl-pv-row"><span class="tpl-pv-lab">临时会话：</span><span class="tpl-pv-val">'+ snap.session +'</span></div>';
+  html += '<div class="tpl-pv-row"><span class="tpl-pv-lab">硬件总线：</span><span class="tpl-pv-val">'+ snap.busName +'</span></div>';
+  html += '<div class="tpl-pv-row"><span class="tpl-pv-lab">已勾选 <b>'+ snap.checked.length +'</b> 条通道：</span><span class="tpl-pv-val">'+ (snap.checkedNames.join("、") || '<i style="color:#94A3B8;">无</i>') +'</span></div>';
+  html += '<div class="tpl-pv-row"><span class="tpl-pv-lab">已挂载 <b>'+ snap.active.length +'</b> 条监听流：</span><span class="tpl-pv-val">'+ (snap.activeNames.join("、") || '<i style="color:#94A3B8;">无</i>') +'</span></div>';
+  document.getElementById("tpl-preview").innerHTML = html;
+}
+
+function tplRenderList() {
+  var arr = tplLoadAll();
+  var box = document.getElementById("tpl-list");
+  if (!arr.length) {
+    box.innerHTML = '<div class="tpl-empty">暂无已保存模板。当前选择保存后，可在这里复用。</div>';
+    return;
+  }
+  var catLabel = {
+    powertrain:"动力总成", lubrication:"润滑/油液",
+    hydraulic:"液压系统", tire:"胎压温度", custom:"自定义"
+  };
+  var html = '';
+  arr.slice().reverse().forEach(function(t, idx){
+    var realIdx = arr.length - 1 - idx;
+    html += '<div class="tpl-item" data-idx="'+ realIdx +'">' +
+      '<div class="tpl-item-l">' +
+        '<div class="tpl-item-name">'+ t.name +'</div>' +
+        '<div class="tpl-item-meta">' +
+          '<span class="tpl-tag">'+ (catLabel[t.cat] || t.cat) +'</span>' +
+          '<span>'+ (t.snap.checked.length||0) +' 通道 / '+ (t.snap.active.length||0) +' 监听流</span>' +
+          '<span style="color:#94A3B8;">'+ t.created +'</span>' +
+        '</div>' +
+        (t.remark ? '<div class="tpl-item-remark">'+ t.remark +'</div>' : '') +
+      '</div>' +
+      '<div class="tpl-item-r">' +
+        '<button class="tpl-mini-btn tpl-mini-apply" onclick="tplApply('+ realIdx +')">应用</button>' +
+        '<button class="tpl-mini-btn tpl-mini-del" onclick="tplDelete('+ realIdx +')">删除</button>' +
+      '</div>' +
+    '</div>';
+  });
+  box.innerHTML = html;
+}
+
+function saveTpl() {
+  var name = (document.getElementById("tpl-name").value || "").trim();
+  if (!name) { alert("请填写模板名称"); return; }
+  var cat = document.getElementById("tpl-cat").value;
+  var remark = (document.getElementById("tpl-remark").value || "").trim();
+  var snap = tplCollectSnapshot();
+  if (snap.checked.length === 0 && snap.active.length === 0) {
+    if (!confirm("当前没有勾选任何通道，也没有挂载任何监听流。\n仍要保存为空模板吗？")) return;
+  }
+  var d = new Date();
+  var pad = function(n){return n<10?'0'+n:n;};
+  var stamp = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+  var arr = tplLoadAll();
+  arr.push({
+    name: name, cat: cat, remark: remark,
+    created: stamp, snap: snap
+  });
+  tplSaveAll(arr);
+  tplRenderList();
+  // 闪一下保存按钮
+  var ok = '✓ 已保存模板「' + name + '」\n\n包含 ' + snap.checked.length + ' 条勾选通道 / ' + snap.active.length + ' 条监听流。';
+  alert(ok);
+  // 保存后清空名称备注，但保留对话框打开供继续操作
+  document.getElementById("tpl-remark").value = "";
+}
+
+function tplApply(idx) {
+  var arr = tplLoadAll();
+  var t = arr[idx];
+  if (!t) return;
+  if (!confirm('应用模板「'+ t.name +'」？\n\n会覆盖当前的勾选与挂载状态。')) return;
+  var snap = t.snap || {};
+  // 还原下拉
+  if (snap.model) {
+    var sel = document.getElementById("msf-model");
+    Array.prototype.forEach.call(sel.options, function(o){
+      if (o.value === snap.model || o.text === snap.model) sel.value = o.value;
+    });
+  }
+  if (snap.session) {
+    var sel2 = document.getElementById("msf-session");
+    Array.prototype.forEach.call(sel2.options, function(o){
+      if (o.value === snap.session || o.text === snap.session) sel2.value = o.value;
+    });
+  }
+  // 还原总线
+  if (snap.bus) {
+    STATE.selectedBus = snap.bus;
+    renderBusList();
+    renderChannelTable();
+  }
+  // 还原勾选
+  STATE.checked = {};
+  (snap.checked || []).forEach(function(id){ STATE.checked[id] = true; });
+  document.querySelectorAll(".ms-ch-cb").forEach(function(cb){
+    cb.checked = !!STATE.checked[cb.value];
+  });
+  // 还原已挂载
+  STATE.active = (snap.active || []).slice();
+  renderActiveTable();
+  closeTplDialog();
+  alert('✓ 已应用模板「'+ t.name +'」');
+}
+
+function tplApplyLatest() {
+  var arr = tplLoadAll();
+  if (!arr.length) { alert("还没有任何已保存模板"); return; }
+  tplApply(arr.length - 1);
+}
+
+function tplDelete(idx) {
+  var arr = tplLoadAll();
+  var t = arr[idx];
+  if (!t) return;
+  if (!confirm('确认删除模板「'+ t.name +'」？')) return;
+  arr.splice(idx, 1);
+  tplSaveAll(arr);
+  tplRenderList();
+}
+
+function tplClearAll() {
+  var arr = tplLoadAll();
+  if (!arr.length) { alert("当前没有已保存模板"); return; }
+  if (!confirm('确认清空全部 '+ arr.length +' 个已保存模板？此操作不可恢复。')) return;
+  tplSaveAll([]);
+  tplRenderList();
+}
+</script>
+</body>
+</html>

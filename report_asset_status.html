@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="page.rptAsset.title">资产运行状态报表</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <script>
+    (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+    (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+  </script>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-header">
+      <div>
+        <div class="breadcrumb"><a href="index.html">首页</a> / 数据与管理 / 报表管理 / <span>资产运行状态报表</span></div>
+        <h1 class="page-title" data-i18n="page.rptAsset.title">资产运行状态报表</h1>
+        <p class="page-subtitle">实时显示各资产的运行物理状态、状态因果与作业上下文（厂商：XCMG）</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-ghost" onclick="rasRefresh()">↻ 刷新</button>
+        <button class="btn btn-primary" onclick="alert('（演示）已导出报表')">导出 Excel</button>
+      </div>
+    </div>
+
+    <!-- 顶部状态分布条 -->
+    <div class="ras-summary card" id="ras-summary"></div>
+
+    <!-- 图例 -->
+    <div class="ras-legend">
+      <span class="ras-lg"><span class="ras-lg-dot ras-c-running"></span>状态正常</span>
+      <span class="ras-lg"><span class="ras-lg-dot ras-c-ready"></span>等待释放</span>
+      <span class="ras-lg"><span class="ras-lg-dot ras-c-stop"></span>就地临停</span>
+      <span class="ras-lg"><span class="ras-lg-dot ras-c-maint"></span>停车维修</span>
+    </div>
+
+    <!-- 资产运行状态表 -->
+    <div class="ras-table-wrap card">
+      <table class="ras-table">
+        <thead>
+          <tr>
+            <th style="width:200px;">厂商与车型</th>
+            <th style="width:120px;">设备自编号</th>
+            <th style="width:140px;">物理状态</th>
+            <th>状态因果 / 当前指令</th>
+            <th style="width:90px;">综合效率</th>
+            <th style="width:90px;">利用率 (UF)</th>
+            <th style="width:160px;">当前装载信标点</th>
+            <th style="width:160px;">目标卸料去向</th>
+          </tr>
+        </thead>
+        <tbody id="ras-tbody"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+XCMG_NAV.mount("data-rpt-asset");
+
+/* ================= 状态映射 =================
+ * 业务字段 dispatch_status → 报表4色
+ *   working      → running   绿色   状态正常
+ *   ready        → ready     浅蓝   等待释放
+ *   maintenance  → maint     黄色   就地临停（保养暂停作业）
+ *   locked       → stop      红色   停车维修
+ */
+var RAS_STATUS = {
+  working:     { key: "running", cls: "ras-c-running", label: "状态正常" },
+  ready:       { key: "ready",   cls: "ras-c-ready",   label: "等待释放" },
+  maintenance: { key: "maint",   cls: "ras-c-maint",   label: "就地临停" },
+  locked:      { key: "stop",    cls: "ras-c-stop",    label: "停车维修" }
+};
+
+/* 业务上下文（参考图风格的"信标点 / 卸料去向 / 状态因果"补全） */
+var RAS_CTX = {
+  "XE5600-001":  { reason: "标准开采作业 · 自动循环",      uf: 92, oee: 88, loadPoint: "9100·开采面 N3", dump: "破碎站 BX-01" },
+  "XE2000-001":  { reason: "等待运输车回位 · 怠速待命",    uf: 71, oee: 76, loadPoint: "9200·开采面 S2", dump: "破碎站 BX-02" },
+  "GR5505-001":  { reason: "停车维修 · 等待液压油更换",    uf: 12, oee: 18, loadPoint: "—",                dump: "—" },
+  "LW1200KN-001":{ reason: "等待装料任务释放 · 待派发",    uf: 0,  oee: 64, loadPoint: "9700·待命区",      dump: "破碎站 BX-01" },
+  "LW1000KN-001":{ reason: "周保养计划临停 · 油液点检",    uf: 35, oee: 52, loadPoint: "9600·维修棚",      dump: "—" }
+};
+
+function rasRefresh() {
+  var assets = (XCMG_DATA.assets || []).slice();
+
+  // 顶部统计
+  var counts = { running:0, ready:0, maint:0, stop:0 };
+  assets.forEach(function(a){
+    var m = RAS_STATUS[a.dispatch_status] || RAS_STATUS.working;
+    counts[m.key]++;
+  });
+  document.getElementById("ras-summary").innerHTML =
+    rasSumCell(counts.running, "状态正常",  "ras-c-running") +
+    rasSumCell(counts.ready,   "等待释放",  "ras-c-ready") +
+    rasSumCell(counts.maint,   "就地临停",  "ras-c-maint") +
+    rasSumCell(counts.stop,    "停车维修",  "ras-c-stop") +
+    '<div class="ras-sum-cell ras-sum-total"><div class="ras-sum-num">' + assets.length + '</div><div class="ras-sum-lab">资产合计</div></div>';
+
+  // 表体
+  document.getElementById("ras-tbody").innerHTML = assets.map(function(a){
+    var m = RAS_STATUS[a.dispatch_status] || RAS_STATUS.working;
+    var ctx = RAS_CTX[a.id] || { reason: "—", uf: 0, oee: 0, loadPoint: "—", dump: "—" };
+    return '<tr class="ras-row ' + m.cls + '" onclick="location.href=\'asset_detail.html?id=' + a.id + '\'">' +
+      '<td>' +
+        '<div class="ras-vendor">XCMG · ' + (a.model || a.category) + '</div>' +
+        '<div class="ras-vendor-sub">矿用' + (a.category || '') + ' · ' + (a.site || a.location || '') + '</div>' +
+      '</td>' +
+      '<td><span class="ras-asset-id">' + a.id + '</span></td>' +
+      '<td><span class="ras-pill ' + m.cls + '"><span class="ras-pill-dot"></span>' + m.label + '</span></td>' +
+      '<td class="ras-reason">' + ctx.reason + '</td>' +
+      '<td><span class="ras-num">' + ctx.oee + '</span><span class="ras-num-unit">%</span></td>' +
+      '<td><span class="ras-num">' + ctx.uf + '</span><span class="ras-num-unit">%</span></td>' +
+      '<td class="text-sm">' + ctx.loadPoint + '</td>' +
+      '<td class="text-sm">' + ctx.dump + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function rasSumCell(num, lab, cls) {
+  return '<div class="ras-sum-cell">' +
+    '<div class="ras-sum-num ' + cls + '">' + num + '</div>' +
+    '<div class="ras-sum-lab">' + lab + '</div>' +
+  '</div>';
+}
+
+document.addEventListener("DOMContentLoaded", rasRefresh);
+</script>
+</body>
+</html>

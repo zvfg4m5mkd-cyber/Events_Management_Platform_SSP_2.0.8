@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.monitor.chart.title">实时波形监测台</title>
+<link rel="stylesheet" href="css/main.css">
+<style>
+  /* ========== 实时监测台·独立深色工作台 ========== */
+  html, body { background:#0B1220 !important; color:#E6ECF7; }
+  body { margin:0; font-family:"PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif; }
+  .mc-app { min-height:100vh; display:flex; flex-direction:column; }
+
+  /* 顶部菜单条 */
+  .mc-bar {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 24px; background:#0F1A2E;
+    border-bottom:1px solid #1F2D45;
+  }
+  .mc-bar-l { display:flex; align-items:center; gap:10px; font-size:16px; font-weight:600; }
+  .mc-bar-l .mc-bar-ic { width:28px; height:28px; border-radius:6px; background:linear-gradient(135deg,#1976D2,#5DA8FF); display:flex; align-items:center; justify-content:center; font-size:14px; }
+  .mc-bar-l .mc-bar-asset { color:#5DA8FF; }
+  .mc-bar-l .mc-bar-sep { color:#5A6478; margin:0 6px; }
+  .mc-bar-l .mc-bar-sub { color:#A8B4CC; font-weight:500; font-size:14.5px; }
+  .mc-bar-r { display:flex; align-items:center; gap:24px; font-size:13.5px; color:#A8B4CC; }
+  .mc-bar-r .mc-menu { cursor:pointer; }
+  .mc-bar-r .mc-menu:hover { color:#5DA8FF; }
+  .mc-bar-r .mc-menu kbd { color:#FFB547; font-family:inherit; font-style:normal; }
+  .mc-bar-r .mc-back { display:flex; align-items:center; gap:4px; padding:5px 12px; border:1px solid #2F4570; border-radius:5px; color:#A8B4CC; cursor:pointer; }
+  .mc-bar-r .mc-back:hover { color:#5DA8FF; border-color:#5DA8FF; }
+
+  /* 信息条 */
+  .mc-info {
+    display:grid; grid-template-columns: repeat(4,1fr); gap:0;
+    padding:12px 24px; background:#0F1A2E; border-bottom:1px solid #1F2D45;
+  }
+  .mc-info-cell { display:flex; align-items:center; gap:10px; padding:0 16px; border-right:1px dashed #1F2D45; }
+  .mc-info-cell:last-child { border-right:none; }
+  .mc-info-lab { color:#7A8AA8; font-size:13px; }
+  .mc-info-val { color:#E6ECF7; font-size:14px; font-weight:600; }
+  .mc-info-val .mc-dot-on { display:inline-block; width:7px; height:7px; border-radius:50%; background:#41D38B; box-shadow:0 0 6px #41D38B; vertical-align:middle; margin-right:4px; animation:mcblink 1.4s ease-in-out infinite; }
+  .mc-info-val .mc-on-text { color:#41D38B; }
+  @keyframes mcblink { 0%,100%{opacity:1;} 50%{opacity:0.45;} }
+
+  /* 通道列表 */
+  .mc-channels { flex:1; padding:14px 24px 28px; display:flex; flex-direction:column; gap:14px; }
+  .mc-ch {
+    background:#0F1A2E; border:1px solid #1F2D45; border-radius:10px;
+    padding:14px 18px 6px; position:relative;
+  }
+  .mc-ch-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .mc-ch-title { display:flex; align-items:center; gap:8px; font-size:14.5px; font-weight:600; }
+  .mc-ch-num { color:#FFFFFF; }
+  .mc-ch-iface { color:#7A8AA8; font-weight:500; font-size:13px; }
+  .mc-ch-name { color:#E6ECF7; }
+  .mc-ch-meta { color:#A8B4CC; font-size:13px; font-weight:500; text-align:right; line-height:1.5; }
+  .mc-ch-meta .mc-meta-key { color:#7A8AA8; }
+  .mc-ch-meta .mc-meta-warn { color:#FFB547; }
+  .mc-ch-canvas { height:170px; position:relative; }
+  /* 当前时间基准红线 */
+  .mc-ch-canvas::after {
+    content:""; position:absolute; right:48px; top:8px; bottom:8px;
+    width:1.5px; background:#E53935; opacity:0.85; box-shadow:0 0 6px #E53935;
+  }
+  .mc-ch-baseline-tag {
+    position:absolute; right:48px; top:8px; transform: translateX(8px);
+    color:#E53935; font-size:11.5px; font-weight:600; pointer-events:none;
+    background:#0F1A2E; padding:1px 4px; border-radius:3px;
+  }
+
+  @media (max-width: 1100px) {
+    .mc-info { grid-template-columns: repeat(2,1fr); }
+    .mc-info-cell { border-right:none; border-bottom:1px dashed #1F2D45; padding:8px 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="mc-app">
+
+  <!-- 顶部菜单条 -->
+  <div class="mc-bar">
+    <div class="mc-bar-l">
+      <div class="mc-bar-ic">📈</div>
+      <span class="mc-bar-asset" id="mc-asset">5522号 运输卡车</span>
+      <span class="mc-bar-sep">——</span>
+      <span class="mc-bar-sub">异构总线参数流实时波形监测台</span>
+    </div>
+    <div class="mc-bar-r">
+      <span class="mc-back" id="mc-back">← 返回选择</span>
+    </div>
+  </div>
+
+  <!-- 信息条 -->
+  <div class="mc-info">
+    <div class="mc-info-cell">
+      <span class="mc-info-lab">受控单机编号:</span>
+      <span class="mc-info-val" id="mc-asset-id">— 号大型矿卡</span>
+    </div>
+    <div class="mc-info-cell">
+      <span class="mc-info-lab">当前运行工况:</span>
+      <span class="mc-info-val"><span class="mc-dot-on"></span><span class="mc-on-text">正在捕获实时遥测数据流</span></span>
+    </div>
+    <div class="mc-info-cell">
+      <span class="mc-info-lab">触发捕获时刻:</span>
+      <span class="mc-info-val" id="mc-trigger-time">2026-06-18 15:34:23</span>
+    </div>
+    <div class="mc-info-cell">
+      <span class="mc-info-lab">数据吞吐负载:</span>
+      <span class="mc-info-val"><span id="mc-throughput">1184</span> 采样点 / 秒 <span style="color:#7A8AA8;font-size:12.5px;font-weight:400;margin-left:6px;">(总量: <span id="mc-size">61</span> Kb)</span></span>
+    </div>
+  </div>
+
+  <!-- 通道容器 -->
+  <div class="mc-channels" id="mc-channels"></div>
+
+</div>
+
+<script src="js/echarts.min.js"></script>
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script>
+function getQ(name) {
+  var m = new RegExp("[?&]" + name + "=([^&]*)").exec(window.location.search);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+var ASSET_ID = getQ("id") || "XE5600-001";
+var CHANNEL_IDS = (getQ("channels") || "ch-engine-rpm,ch-oil-pressure,ch-oil-filter-dp").split(",");
+var ASSET = window.XCMG_DATA.getAssetById(ASSET_ID);
+var ALL_CHANNELS = window.XCMG_DATA.monitor_channels.channels;
+var BUS_OPTS = window.XCMG_DATA.monitor_channels.bus_options;
+
+// 取实际通道（限定 5 条以内，避免太长）
+var CHANNELS = CHANNEL_IDS.map(function(id){
+  return ALL_CHANNELS.filter(function(c){return c.id===id;})[0];
+}).filter(Boolean).slice(0, 5);
+
+if (!CHANNELS.length) {
+  CHANNELS = [
+    ALL_CHANNELS[0], ALL_CHANNELS[1], ALL_CHANNELS[2]
+  ];
+}
+
+// 顶部信息
+document.title = (ASSET ? ASSET.name + "-001" : "") + " - 实时波形监测台";
+document.getElementById("mc-asset").textContent = (ASSET ? ASSET.name + "-001 号 " + ASSET.category : "受控单机");
+document.getElementById("mc-asset-id").textContent = (ASSET ? ASSET.name + "-001 号大型矿卡" : "—");
+document.getElementById("mc-back").onclick = function(){
+  window.location.href = "monitor_select.html?id=" + ASSET_ID;
+};
+
+// 触发时刻 = 当前时间
+function fmtTime(d) {
+  var p = function(n){return (n<10?"0":"")+n;};
+  return d.getFullYear() + "-" + p(d.getMonth()+1) + "-" + p(d.getDate()) +
+    " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+}
+var startedAt = new Date();
+document.getElementById("mc-trigger-time").textContent = fmtTime(startedAt);
+
+/* ========== 渲染通道结构 ========== */
+var charts = [];   // { ch, instance, data: [[t,v]...] }
+var WINDOW_POINTS = 30;   // 60 秒窗口
+var TICK_MS = 2000;       // 每 2 秒一个点
+
+function busNameOf(id) {
+  var b = BUS_OPTS.filter(function(x){return x.id===id;})[0];
+  return b ? b.name : id;
+}
+
+function buildPanels() {
+  var host = document.getElementById("mc-channels");
+  host.innerHTML = "";
+  CHANNELS.forEach(function(ch, idx){
+    var unitText = ch.oem_unit + " (" + ch.unit + ")";
+    var metaRight =
+      '<div class="mc-meta-key">当前计量单位:</div>' +
+      '<div>' + unitText +
+      (ch.warning
+         ? ' &nbsp;|&nbsp; <span class="mc-meta-warn">警告说明: ' + ch.warning + '</span>'
+         : ' &nbsp;|&nbsp; <span class="mc-meta-key">' + (ch.unit==="Rpm" ? "全景满标度: " + ch.range : "瞬时平均值: " + ch.baseline) + '</span>'
+      ) + '</div>';
+
+    var card = document.createElement("div");
+    card.className = "mc-ch";
+    card.innerHTML =
+      '<div class="mc-ch-head">' +
+        '<div class="mc-ch-title">' +
+          '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + ch.color + ';margin-right:6px;box-shadow:0 0 6px ' + ch.color + ';"></span>' +
+          '<span class="mc-ch-num">通道 ' + (idx+1) + ':</span>' +
+          '<span class="mc-ch-iface">[' + busNameOf(ch.bus) + ' 协议接口]</span>' +
+          '<span class="mc-ch-name">' + ch.name + '</span>' +
+        '</div>' +
+        '<div class="mc-ch-meta">' + metaRight + '</div>' +
+      '</div>' +
+      '<div class="mc-ch-canvas" id="mc-canvas-' + idx + '">' +
+        '<div class="mc-ch-baseline-tag">当前时间基准</div>' +
+      '</div>';
+    host.appendChild(card);
+
+    var inst = echarts.init(card.querySelector(".mc-ch-canvas"), null, { renderer: "canvas" });
+    inst.setOption(buildChartOption(ch));
+    charts.push({ ch: ch, inst: inst, data: [] });
+  });
+}
+
+function buildChartOption(ch) {
+  var min = ch.baseline - ch.jitter*4 - ch.range*0.05;
+  var max = ch.baseline + ch.jitter*4 + ch.range*0.05;
+  // 对于 RPM 这种范围比较大的，用满标度
+  if (ch.unit === "Rpm") { min = 0; max = ch.range; }
+  return {
+    backgroundColor: "transparent",
+    animation: true,
+    animationDuration: 700,
+    animationEasing: "cubicOut",
+    grid: { left: 22, right: 60, top: 8, bottom: 18, containLabel: false },
+    xAxis: {
+      type: "time",
+      axisLine: { lineStyle: { color: "#1F2D45" } },
+      axisTick: { show: false },
+      splitLine: { show: true, lineStyle: { color: "rgba(31,45,69,0.6)", type: "dashed" } },
+      axisLabel: { color: "#7A8AA8", fontSize: 10, hideOverlap: true,
+        formatter: function(v){
+          var d = new Date(v);
+          var p = function(n){return (n<10?"0":"")+n;};
+          return p(d.getMinutes()) + ":" + p(d.getSeconds());
+        }
+      }
+    },
+    yAxis: {
+      type: "value",
+      min: min, max: max,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: { lineStyle: { color: "rgba(31,45,69,0.5)", type: "dashed" } },
+      axisLabel: { color: "#7A8AA8", fontSize: 10 }
+    },
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: "rgba(15,23,42,0.94)",
+      borderColor: "#2F4570",
+      textStyle: { color: "#E6ECF7", fontSize: 12 },
+      axisPointer: { lineStyle: { color: "#5DA8FF", width: 1 } },
+      formatter: function(p){
+        if (!p || !p.length) return "";
+        var d = new Date(p[0].value[0]);
+        var pf = function(n){return (n<10?"0":"")+n;};
+        var t = pf(d.getHours()) + ":" + pf(d.getMinutes()) + ":" + pf(d.getSeconds());
+        return t + "<br/>" + p[0].marker + " " + ch.name + "：<strong>" + p[0].value[1].toFixed(1) + "</strong> " + ch.unit;
+      }
+    },
+    series: [{
+      name: ch.name,
+      type: "line",
+      smooth: true,
+      showSymbol: true,
+      symbol: "circle",
+      symbolSize: 6,
+      itemStyle: { color: ch.color, borderColor: "#0F1A2E", borderWidth: 2 },
+      lineStyle: { color: ch.color, width: 2 },
+      areaStyle: {
+        color: { type: "linear", x:0, y:0, x2:0, y2:1,
+          colorStops: [
+            { offset: 0, color: hexA(ch.color, 0.32) },
+            { offset: 1, color: hexA(ch.color, 0.04) }
+          ]
+        }
+      },
+      data: []
+    }]
+  };
+}
+
+function hexA(hex, a) {
+  // 简单将 #RRGGBB 转为 rgba
+  var h = hex.replace("#","");
+  var r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+}
+
+/* ========== 数据生成（每 2 秒一个点） ========== */
+var tickCount = 0;
+var lastValues = {};   // chId -> 上一次值，做平滑
+function nextValue(ch) {
+  var prev = lastValues[ch.id];
+  if (prev === undefined) prev = ch.baseline;
+  // 类似随机游走：在 baseline 附近，向 baseline 回归
+  var drift = (Math.random() - 0.5) * 2 * ch.jitter;
+  var pull  = (ch.baseline - prev) * 0.2;
+  var v = prev + drift + pull;
+  // 不超出 [0, range*1.05]
+  v = Math.max(0, Math.min(ch.range * 1.05, v));
+  lastValues[ch.id] = v;
+  return v;
+}
+
+function pushPoint() {
+  var now = Date.now();
+  charts.forEach(function(c){
+    var v = nextValue(c.ch);
+    c.data.push([now, v]);
+    if (c.data.length > WINDOW_POINTS) c.data.shift();
+    c.inst.setOption({
+      series: [{ data: c.data }]
+    });
+  });
+  // 顶部数字也轻微跳动一下
+  var thr = 1100 + Math.floor(Math.random() * 180);
+  document.getElementById("mc-throughput").textContent = thr;
+  document.getElementById("mc-size").textContent = (60 + tickCount * 2);
+  tickCount++;
+}
+
+/* —— 启动 —— */
+window.addEventListener("DOMContentLoaded", function(){
+  buildPanels();
+  // 立即第一帧
+  pushPoint();
+  // 之后每 2 秒一帧
+  setInterval(pushPoint, TICK_MS);
+});
+
+window.addEventListener("resize", function(){
+  charts.forEach(function(c){ c.inst.resize(); });
+});
+</script>
+</body>
+</html>

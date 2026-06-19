@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.inspect.title">点检任务结果</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+<style>
+  .data-table-card { padding: 0; overflow-x: auto; }
+  .data-table-card table { min-width: 1180px; }
+  .ir-id-cell { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-secondary); }
+  .ir-defect-row { display: inline-flex; gap: 4px; align-items: center; }
+  .ir-defect-pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 26px; height: 20px; padding: 0 6px;
+    border-radius: 10px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border-line);
+    background: var(--bg-elev); color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  .ir-defect-pill.is-red    { color: #C62828; border-color: rgba(229,57,53,.45); background: rgba(229,57,53,.10); }
+  .ir-defect-pill.is-yellow { color: #E65100; border-color: rgba(251,140,0,.45); background: rgba(251,140,0,.10); }
+  .ir-defect-pill.is-green  { color: #2E7D32; border-color: rgba(67,160,71,.40);  background: rgba(67,160,71,.08); }
+  .ir-defect-pill.is-grey   { color: var(--text-muted); }
+  .ir-gps-cell {
+    color: var(--text-secondary); font-size: 12.5px; line-height: 1.45;
+    overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  /* 严重状态徽章 */
+  .al-st-tag.al-st-evt-critical { background: rgba(229,57,53,.10); color: #C62828; }
+  .al-st-tag.al-st-evt-critical .al-st-dot { background: #E53935; box-shadow: 0 0 0 2px rgba(229,57,53,.18); }
+  [data-theme="dark"] .al-st-tag.al-st-evt-critical { background: rgba(239,83,80,.18); color: #EF9A9A; }
+</style>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <h1 data-i18n="page.inspect.title">点检任务结果</h1>
+      <div class="breadcrumb">首页 / 数据与管理 / 油品/点检结果 / 点检任务结果</div>
+    </div>
+
+    <!-- 过滤器 -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <input type="text" id="ir-search" placeholder="搜索点检单号 / 设备 / 点检员…" />
+      </div>
+      <select id="ir-period">
+        <option value="7d">最近 7 天</option>
+        <option value="30d" selected>最近 30 天</option>
+        <option value="90d">最近 90 天</option>
+        <option value="180d">最近 180 天</option>
+        <option value="all">全部周期</option>
+      </select>
+      <select id="ir-overall">
+        <option value="" data-i18n="common.allStatus">全部状态</option>
+        <option value="normal">正常</option>
+        <option value="warning">警告</option>
+        <option value="critical">严重</option>
+      </select>
+      <select id="ir-asset">
+        <option value="" data-i18n="common.allModels">全部型号</option>
+        <option value="XE5600">XE5600</option>
+        <option value="XE2000">XE2000</option>
+        <option value="GR5505">GR5505</option>
+        <option value="LW1200KN">LW1200KN</option>
+        <option value="LW1000KN">LW1000KN</option>
+      </select>
+      <select id="ir-defect">
+        <option value="">全部缺陷等级</option>
+        <option value="red">含红色缺陷</option>
+        <option value="yellow">仅黄色缺陷</option>
+        <option value="clean">无缺陷</option>
+      </select>
+      <button class="btn btn-sm" id="ir-export" style="margin-left:auto;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        导出
+      </button>
+    </div>
+
+    <!-- 统计摘要 -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+      <div class="kpi-card accent-blue" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">本周期点检单</div>
+        <div style="font-size:22px;font-weight:700;color:var(--xcmg-blue);"><span id="ir-kpi-total">0</span> <span style="font-size:13px;font-weight:500;color:var(--text-muted);">单</span></div>
+      </div>
+      <div class="kpi-card accent-green" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">整体正常</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-normal);" id="ir-kpi-normal">0</div>
+      </div>
+      <div class="kpi-card accent-orange" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">整体警告</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-warning);" id="ir-kpi-warning">0</div>
+      </div>
+      <div class="kpi-card accent-red" style="padding:12px 14px;">
+        <div style="font-size:12px;color:var(--text-muted);">整体严重</div>
+        <div style="font-size:22px;font-weight:700;color:var(--status-critical);" id="ir-kpi-critical">0</div>
+      </div>
+    </div>
+
+    <!-- 数据表 -->
+    <div class="card data-table-card">
+      <table class="alert-table-v3">
+        <thead>
+          <tr>
+            <th style="width:148px;">点检单号</th>
+            <th style="width:122px;">设备编号</th>
+            <th style="width:96px;">设备型号</th>
+            <th style="width:108px;">点检日期</th>
+            <th style="width:64px;">时刻</th>
+            <th style="width:80px;">点检员</th>
+            <th style="width:84px;text-align:right;">工作小时</th>
+            <th style="width:200px;text-align:center;">缺陷统计</th>
+            <th style="width:64px;text-align:center;">状态</th>
+            <th>末次 GPS</th>
+          </tr>
+        </thead>
+        <tbody id="ir-tbody"></tbody>
+      </table>
+      <div style="padding:10px 16px;border-top:1px solid var(--border-line);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:12.5px;color:var(--text-muted);">显示 <span id="ir-shown">0</span> 条 / 共 <span id="ir-total">0</span> 条记录</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">‹</span>
+          <span class="pg" style="border:1px solid var(--xcmg-blue);background:var(--xcmg-blue);color:#fff;border-radius:4px;padding:2px 8px;font-size:12px;">1</span>
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">›</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+/* ============== 数据 ============== */
+var IR_ALL = (XCMG_DATA && XCMG_DATA.inspections) ? XCMG_DATA.inspections.slice() : [];
+
+// 周期基线：取最大 date
+var IR_BASE_TS = 0;
+for (var i = 0; i < IR_ALL.length; i++) {
+  var t = new Date(IR_ALL[i].date).getTime();
+  if (!isNaN(t) && t > IR_BASE_TS) IR_BASE_TS = t;
+}
+var DAY_MS = 86400000;
+
+/* ============== 工具函数 ============== */
+function statusTag(st) {
+  var map = {
+    normal:   { txt: "正常", cls: "al-st-evt-closed" },
+    warning:  { txt: "警告", cls: "al-st-evt-pending" },
+    critical: { txt: "严重", cls: "al-st-evt-critical" }
+  };
+  var s = map[st] || { txt: "-", cls: "al-st-evt-progress" };
+  return '<span class="al-st-tag ' + s.cls + '"><span class="al-st-dot"></span>' + s.txt + '</span>';
+}
+function defectRow(t) {
+  t = t || {};
+  return '<div class="ir-defect-row">' +
+    '<span class="ir-defect-pill is-red"    title="红色缺陷">R ' + (t.red    || 0) + '</span>' +
+    '<span class="ir-defect-pill is-yellow" title="黄色缺陷">Y ' + (t.yellow || 0) + '</span>' +
+    '<span class="ir-defect-pill is-green"  title="绿色正常">G ' + (t.green  || 0) + '</span>' +
+    '<span class="ir-defect-pill is-grey"   title="灰色未检">· ' + (t.grey   || 0) + '</span>' +
+  '</div>';
+}
+function fmtNum(n) { return (n == null || isNaN(n)) ? "—" : Number(n).toLocaleString(); }
+
+/* ============== 过滤 / 渲染 ============== */
+function irApplyFilter() {
+  var kw      = (document.getElementById("ir-search").value || "").trim().toLowerCase();
+  var period  = document.getElementById("ir-period").value;
+  var overall = document.getElementById("ir-overall").value;
+  var asset   = document.getElementById("ir-asset").value;
+  var defect  = document.getElementById("ir-defect").value;
+
+  var maxDay = period === "7d"   ? 7
+             : period === "30d"  ? 30
+             : period === "90d"  ? 90
+             : period === "180d" ? 180
+             : Infinity;
+
+  var list = IR_ALL.filter(function(it){
+    if (overall && it.overall    !== overall) return false;
+    if (asset   && it.asset_name !== asset)   return false;
+    if (maxDay !== Infinity && IR_BASE_TS > 0) {
+      var ts = new Date(it.date).getTime();
+      if (isNaN(ts)) return false;
+      var diffDay = (IR_BASE_TS - ts) / DAY_MS;
+      if (diffDay > maxDay) return false;
+    }
+    if (defect) {
+      var t = it.totals || {};
+      if (defect === "red"     && (t.red || 0) === 0) return false;
+      if (defect === "yellow"  && ((t.red || 0) > 0 || (t.yellow || 0) === 0)) return false;
+      if (defect === "clean"   && ((t.red || 0) > 0 || (t.yellow || 0) > 0)) return false;
+    }
+    if (kw) {
+      var hay = [it.id, it.asset_id, it.asset_name, it.model, it.inspector, it.gps].filter(Boolean).join(" ").toLowerCase();
+      if (hay.indexOf(kw) === -1) return false;
+    }
+    return true;
+  });
+
+  // 按日期+时间倒序
+  list.sort(function(a,b){
+    var k1 = (a.date || "") + " " + (a.time || "");
+    var k2 = (b.date || "") + " " + (b.time || "");
+    return k2.localeCompare(k1);
+  });
+
+  // KPI
+  document.getElementById("ir-kpi-total").textContent    = list.length;
+  document.getElementById("ir-kpi-normal").textContent   = list.filter(function(x){return x.overall==="normal";}).length;
+  document.getElementById("ir-kpi-warning").textContent  = list.filter(function(x){return x.overall==="warning";}).length;
+  document.getElementById("ir-kpi-critical").textContent = list.filter(function(x){return x.overall==="critical";}).length;
+
+  // 表格
+  var tbody = document.getElementById("ir-tbody");
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-muted);">没有匹配的点检单</td></tr>';
+  } else {
+    tbody.innerHTML = list.map(function(it){
+      return '<tr>' +
+        '<td><span class="ir-id-cell">' + it.id + '</span></td>' +
+        '<td>' + it.asset_id + '</td>' +
+        '<td>' + it.asset_name + '</td>' +
+        '<td>' + it.date + '</td>' +
+        '<td>' + (it.time || "—") + '</td>' +
+        '<td>' + (it.inspector || "—") + '</td>' +
+        '<td style="text-align:right;font-variant-numeric:tabular-nums;">' + fmtNum(it.service_meter) + ' h</td>' +
+        '<td style="text-align:center;">' + defectRow(it.totals) + '</td>' +
+        '<td style="text-align:center;">' + statusTag(it.overall) + '</td>' +
+        '<td><div class="ir-gps-cell" title="' + (it.gps || "") + '">' + (it.gps || "—") + '</div></td>' +
+      '</tr>';
+    }).join("");
+  }
+  document.getElementById("ir-shown").textContent = list.length;
+  document.getElementById("ir-total").textContent = list.length;
+}
+
+/* ============== 初始化 ============== */
+document.addEventListener("DOMContentLoaded", function(){
+  XCMG_NAV.mount("data-inspect");
+  ["ir-period","ir-overall","ir-asset","ir-defect"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", irApplyFilter);
+  });
+  document.getElementById("ir-search").addEventListener("input", irApplyFilter);
+  document.getElementById("ir-export").addEventListener("click", function(){ alert("（原型）将导出当前过滤结果为 CSV"); });
+  irApplyFilter();
+});
+</script>
+</body>
+</html>

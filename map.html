@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.map.title">地图定位视图</title>
+<link rel="stylesheet" href="css/main.css">
+<style>
+  /* 矿区示意图 */
+  .mine-svg-wrap {
+    width: 100%; height: 600px;
+    background:
+      radial-gradient(ellipse at 30% 35%, #d3e0d3 0%, #c8d6c4 25%, transparent 26%),
+      radial-gradient(ellipse at 65% 60%, #cad3c2 0%, #bdc7b4 25%, transparent 26%),
+      linear-gradient(180deg, #f3f6fa 0%, #e9eef4 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .mine-svg { width: 100%; height: 100%; display: block; }
+  .marker {
+    cursor: pointer;
+    transition: transform .2s;
+  }
+  .marker:hover { transform: scale(1.1); transform-origin: center; }
+  .map-toolbar {
+    position: absolute; top: 16px; left: 16px;
+    background: #fff; padding: 8px;
+    border-radius: 6px; box-shadow: var(--shadow-md);
+    display: flex; flex-direction: column; gap: 4px;
+    z-index: 5;
+  }
+  .map-toolbar button {
+    width: 28px; height: 28px; border: 1px solid var(--border-light);
+    background: #fff; border-radius: 4px; cursor: pointer;
+    color: var(--text-secondary); font-weight: 700;
+  }
+  .map-toolbar button:hover { color: var(--xcmg-blue); border-color: var(--xcmg-blue); }
+</style>
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <h1 data-i18n="page.map.title">地图定位视图</h1>
+      <div class="breadcrumb">首页 / 地图定位</div>
+    </div>
+
+    <!-- 筛选条 -->
+    <div class="filter-bar">
+      <select id="filter-category">
+        <option value="" data-i18n="common.allTypes">全部类型</option>
+        <option value="挖掘机">挖掘机</option>
+        <option value="装载机">装载机</option>
+        <option value="平地机">平地机</option>
+      </select>
+      <select id="filter-status">
+        <option value="" data-i18n="common.allStatus">全部状态</option>
+        <option value="normal">正常</option>
+        <option value="warning">中等</option>
+        <option value="critical">严重</option>
+      </select>
+      <span class="text-sm muted">站点：</span>
+      <select id="filter-site">
+        <option value="">全部矿区</option>
+        <option value="鄂尔多斯煤矿A区">A区</option>
+        <option value="鄂尔多斯煤矿B区">B区</option>
+        <option value="鄂尔多斯煤矿C区">C区</option>
+      </select>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-sm">📍 定位我</button>
+        <button class="btn btn-sm">📷 截图</button>
+      </div>
+    </div>
+
+    <div class="grid-2-1">
+      <!-- 地图主区 -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="map-wrap">
+          <div class="mine-svg-wrap">
+            <!-- 简化的矿区 SVG -->
+            <svg class="mine-svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice">
+              <!-- 网格背景 -->
+              <defs>
+                <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                  <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#dde4ee" stroke-width="0.5"/>
+                </pattern>
+                <pattern id="contour" width="120" height="120" patternUnits="userSpaceOnUse">
+                  <path d="M0,60 Q30,30 60,60 T120,60" fill="none" stroke="#bcc8d6" stroke-width="0.6"/>
+                </pattern>
+              </defs>
+              <rect width="1000" height="600" fill="url(#grid)"/>
+              <rect width="1000" height="600" fill="url(#contour)" opacity="0.4"/>
+
+              <!-- 矿坑（同心椭圆） -->
+              <ellipse cx="280" cy="220" rx="180" ry="120" fill="#A8B5A1" opacity="0.6" stroke="#8a9881" stroke-width="1"/>
+              <ellipse cx="280" cy="220" rx="140" ry="92"  fill="#9CAB94" opacity="0.6" stroke="#849075" stroke-width="1"/>
+              <ellipse cx="280" cy="220" rx="100" ry="64"  fill="#8FA289" opacity="0.6" stroke="#6e7a64" stroke-width="1"/>
+              <ellipse cx="280" cy="220" rx="58"  ry="36"  fill="#7e9377" opacity="0.7" stroke="#576551" stroke-width="1"/>
+              <text x="280" y="225" text-anchor="middle" fill="#3d4a37" font-size="13" font-weight="600">采掘 A 区</text>
+
+              <ellipse cx="700" cy="380" rx="200" ry="130" fill="#B5BEA8" opacity="0.55" stroke="#8a9881" stroke-width="1"/>
+              <ellipse cx="700" cy="380" rx="155" ry="100" fill="#A0AC95" opacity="0.55" stroke="#849075" stroke-width="1"/>
+              <ellipse cx="700" cy="380" rx="105" ry="65"  fill="#8FA289" opacity="0.6" stroke="#6e7a64" stroke-width="1"/>
+              <text x="700" y="385" text-anchor="middle" fill="#3d4a37" font-size="13" font-weight="600">采掘 B 区</text>
+
+              <!-- 道路 -->
+              <path d="M 50 100 Q 200 200 400 220 T 750 380 Q 880 420 950 480"
+                    fill="none" stroke="#c1aa7e" stroke-width="6" stroke-linecap="round" opacity="0.7"/>
+              <path d="M 50 100 Q 200 200 400 220 T 750 380 Q 880 420 950 480"
+                    fill="none" stroke="#e8d4a8" stroke-width="3" stroke-linecap="round" stroke-dasharray="8,8"/>
+
+              <!-- 维修车间 -->
+              <rect x="120" y="490" width="80" height="40" rx="3" fill="#7e8da5" opacity="0.85"/>
+              <text x="160" y="513" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">维修车间</text>
+
+              <!-- 油库 -->
+              <circle cx="500" cy="490" r="22" fill="#7e8da5" opacity="0.85"/>
+              <text x="500" y="494" text-anchor="middle" fill="#fff" font-size="10" font-weight="600">油库</text>
+
+              <!-- C 区 -->
+              <ellipse cx="160" cy="430" rx="80" ry="50" fill="#B5BEA8" opacity="0.55"/>
+              <text x="160" y="434" text-anchor="middle" fill="#3d4a37" font-size="12" font-weight="600">C 区</text>
+
+              <!-- 标尺 -->
+              <line x1="50" y1="560" x2="200" y2="560" stroke="#5A6478" stroke-width="2"/>
+              <line x1="50" y1="555" x2="50" y2="565" stroke="#5A6478" stroke-width="2"/>
+              <line x1="200" y1="555" x2="200" y2="565" stroke="#5A6478" stroke-width="2"/>
+              <text x="125" y="555" text-anchor="middle" fill="#5A6478" font-size="11">2 km</text>
+
+              <!-- 指北针 -->
+              <g transform="translate(940,60)">
+                <circle cx="0" cy="0" r="22" fill="#fff" stroke="#5A6478" stroke-width="1"/>
+                <polygon points="0,-15 6,8 0,4 -6,8" fill="#E53935"/>
+                <text x="0" y="-26" text-anchor="middle" fill="#1F2A3D" font-size="11" font-weight="700">N</text>
+              </g>
+
+              <!-- 设备标记容器 -->
+              <g id="markers"></g>
+            </svg>
+          </div>
+
+          <!-- 地图工具栏 -->
+          <div class="map-toolbar">
+            <button title="放大">+</button>
+            <button title="缩小">−</button>
+            <button title="重置">⟳</button>
+          </div>
+
+          <!-- 图例 -->
+          <div class="map-legend">
+            <div style="font-weight:600;margin-bottom:6px;font-size:13px;">设备状态</div>
+            <div class="lg-item"><span class="dot" style="background:#43A047;"></span>正常运行</div>
+            <div class="lg-item"><span class="dot" style="background:#FB8C00;"></span>中等告警</div>
+            <div class="lg-item"><span class="dot" style="background:#E53935;"></span>严重告警</div>
+            <div class="lg-item"><span class="dot" style="background:#9E9E9E;"></span>离线/无数据</div>
+          </div>
+
+          <!-- 实时统计 -->
+          <div class="map-stats">
+            <div style="font-weight:600;margin-bottom:8px;font-size:13px;">区域设备分布</div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;"><span class="muted">A 区</span><span style="font-weight:600;">3 台</span></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;"><span class="muted">B 区</span><span style="font-weight:600;">1 台</span></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;"><span class="muted">C 区</span><span style="font-weight:600;">1 台</span></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid var(--border-light);margin-top:4px;padding-top:6px;">
+              <span class="muted">总在线</span><span style="font-weight:700;color:var(--status-normal);">5/5</span>
+            </div>
+          </div>
+
+          <!-- 设备弹窗 -->
+          <div class="asset-popover" id="asset-popover">
+            <div class="pop-title" id="pop-title"></div>
+            <div id="pop-status"></div>
+            <div class="pop-row" id="pop-loc"></div>
+            <div class="pop-row" id="pop-fleet"></div>
+            <div class="pop-row" id="pop-uptime"></div>
+            <div class="pop-row" id="pop-alarm"></div>
+            <div style="margin-top:10px;display:flex;gap:6px;">
+              <button class="btn btn-sm btn-primary" id="pop-detail-btn" style="flex:1;">设备详情</button>
+              <button class="btn btn-sm" style="flex:1;" onclick="closePopover()" data-i18n="common.close">关闭</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 设备列表 -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3>设备清单</h3>
+            <div class="sub">点击列表项可在地图上定位</div>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0;" id="asset-list-side"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+// 设备在 SVG 上的坐标（基于 viewBox 1000x600）
+var assetCoords = {
+  "XE5600-001":   { x: 240, y: 200, label: "XE5600" },
+  "XE2000-001":   { x: 320, y: 230, label: "XE2000" },
+  "GR5505-001":   { x: 700, y: 360, label: "GR5505" },
+  "LW1200KN-001": { x: 380, y: 260, label: "LW1200KN" },
+  "LW1000KN-001": { x: 160, y: 420, label: "LW1000KN" }
+};
+
+document.addEventListener("DOMContentLoaded", function() {
+  XCMG_NAV.mount("map");
+  renderMarkers();
+  renderSideList();
+
+  document.getElementById("filter-category").addEventListener("change", renderMarkers);
+  document.getElementById("filter-status").addEventListener("change", renderMarkers);
+  document.getElementById("filter-site").addEventListener("change", renderMarkers);
+});
+
+function getFilteredAssets() {
+  var assets = XCMG_DATA.assets;
+  var cat = document.getElementById("filter-category").value;
+  var st  = document.getElementById("filter-status").value;
+  var site = document.getElementById("filter-site").value;
+  return assets.filter(function(a) {
+    if (cat && a.category !== cat) return false;
+    if (st && a.status !== st) return false;
+    if (site && a.site !== site) return false;
+    return true;
+  });
+}
+
+function statusColor(s) {
+  return s === "critical" ? "#E53935" :
+         s === "warning"  ? "#FB8C00" :
+         s === "normal"   ? "#43A047" : "#9E9E9E";
+}
+
+function renderMarkers() {
+  var g = document.getElementById("markers");
+  if (!g) return;
+  // 清空
+  while (g.firstChild) g.removeChild(g.firstChild);
+
+  var assets = getFilteredAssets();
+  assets.forEach(function(a) {
+    var c = assetCoords[a.id];
+    if (!c) return;
+    var color = statusColor(a.status);
+
+    var ns = "http://www.w3.org/2000/svg";
+    var grp = document.createElementNS(ns, "g");
+    grp.setAttribute("class", "marker");
+    grp.setAttribute("transform", "translate(" + c.x + "," + c.y + ")");
+    grp.setAttribute("data-asset-id", a.id);
+    grp.style.cursor = "pointer";
+
+    // 严重和中等才有 pulse（用 SVG SMIL 动画兼容性更好）
+    if (a.status === "critical" || a.status === "warning") {
+      var pulse = document.createElementNS(ns, "circle");
+      pulse.setAttribute("cx", "0"); pulse.setAttribute("cy", "0");
+      pulse.setAttribute("r", "14"); pulse.setAttribute("fill", color);
+      pulse.setAttribute("opacity", "0.5");
+      var an1 = document.createElementNS(ns, "animate");
+      an1.setAttribute("attributeName", "r"); an1.setAttribute("from", "12");
+      an1.setAttribute("to", "28"); an1.setAttribute("dur", "1.6s");
+      an1.setAttribute("repeatCount", "indefinite");
+      var an2 = document.createElementNS(ns, "animate");
+      an2.setAttribute("attributeName", "opacity"); an2.setAttribute("from", "0.6");
+      an2.setAttribute("to", "0"); an2.setAttribute("dur", "1.6s");
+      an2.setAttribute("repeatCount", "indefinite");
+      pulse.appendChild(an1); pulse.appendChild(an2);
+      grp.appendChild(pulse);
+    }
+
+    // 阴影
+    var shadow = document.createElementNS(ns, "ellipse");
+    shadow.setAttribute("cx", "0"); shadow.setAttribute("cy", "16");
+    shadow.setAttribute("rx", "8"); shadow.setAttribute("ry", "2");
+    shadow.setAttribute("fill", "rgba(0,0,0,0.2)");
+    grp.appendChild(shadow);
+
+    // 标记主体（pin shape）
+    var pinPath = document.createElementNS(ns, "path");
+    pinPath.setAttribute("d", "M 0,-18 C -8,-18 -12,-12 -12,-6 C -12,2 0,14 0,14 C 0,14 12,2 12,-6 C 12,-12 8,-18 0,-18 Z");
+    pinPath.setAttribute("fill", color);
+    pinPath.setAttribute("stroke", "#fff");
+    pinPath.setAttribute("stroke-width", "2");
+    grp.appendChild(pinPath);
+
+    // 中心圆
+    var inner = document.createElementNS(ns, "circle");
+    inner.setAttribute("cx", "0"); inner.setAttribute("cy", "-7");
+    inner.setAttribute("r", "5"); inner.setAttribute("fill", "#fff");
+    grp.appendChild(inner);
+
+    // 标签
+    var label = document.createElementNS(ns, "text");
+    label.setAttribute("x", "0"); label.setAttribute("y", "30");
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("font-size", "11"); label.setAttribute("font-weight", "600");
+    label.setAttribute("fill", "#1F2A3D");
+    label.setAttribute("paint-order", "stroke"); label.setAttribute("stroke", "#fff"); label.setAttribute("stroke-width", "3");
+    label.textContent = c.label;
+    grp.appendChild(label);
+
+    grp.addEventListener("click", function(e) { showPopover(a.id, e); });
+    g.appendChild(grp);
+  });
+}
+
+function renderSideList() {
+  var assets = XCMG_DATA.assets;
+  var html = '';
+  assets.forEach(function(a) {
+    var color = statusColor(a.status);
+    var pill = XCMG_UTIL.pill(a.status);
+    html += '<div onclick="focusAsset(\'' + a.id + '\')" style="padding:12px 16px;border-bottom:1px solid var(--border-light);cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseenter="this.style.background=\'var(--bg-row-hover)\'" onmouseleave="this.style.background=\'\'">' +
+      '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0;"></span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:600;">' + a.name + '</div>' +
+        '<div class="text-sm muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + a.location + '</div>' +
+      '</div>' +
+      pill +
+    '</div>';
+  });
+  document.getElementById("asset-list-side").innerHTML = html;
+}
+
+function focusAsset(assetId) {
+  showPopover(assetId, null);
+}
+
+function showPopover(assetId, evt) {
+  var a = XCMG_DATA.getAssetById(assetId);
+  if (!a) return;
+  var pop = document.getElementById("asset-popover");
+  var c = assetCoords[assetId];
+
+  document.getElementById("pop-title").innerHTML =
+    '<span>' + a.name + '</span>' + XCMG_UTIL.pill(a.status);
+  document.getElementById("pop-status").innerHTML = '';
+  document.getElementById("pop-loc").innerHTML    = '<span class="muted">位置</span><span>' + a.location + '</span>';
+  document.getElementById("pop-fleet").innerHTML  = '<span class="muted">班组</span><span>' + a.fleet + '</span>';
+  document.getElementById("pop-uptime").innerHTML = '<span class="muted">累计作业</span><span>' + a.uptime_hours.toLocaleString() + ' h</span>';
+  document.getElementById("pop-alarm").innerHTML  = '<span class="muted">最近告警</span><span>' + a.last_alarm_time + '</span>';
+  document.getElementById("pop-detail-btn").onclick = function() { location.href = "assets.html"; };
+
+  // 估算位置
+  var wrap = document.querySelector(".mine-svg-wrap");
+  var rect = wrap.getBoundingClientRect();
+  // SVG viewBox 1000x600 → 实际尺寸的比例
+  var px = c.x / 1000 * rect.width;
+  var py = c.y / 600 * rect.height;
+  // 限制不超出
+  var popW = 280, popH = 180;
+  px = Math.min(rect.width - popW - 16, Math.max(16, px - popW / 2));
+  py = Math.max(16, py - popH - 30);
+
+  pop.style.left = px + "px";
+  pop.style.top = py + "px";
+  pop.classList.add("show");
+}
+
+function closePopover() {
+  document.getElementById("asset-popover").classList.remove("show");
+}
+
+document.addEventListener("click", function(e) {
+  // 点击 popover 外区域关闭
+  var pop = document.getElementById("asset-popover");
+  if (pop && pop.classList.contains("show")) {
+    if (!pop.contains(e.target) && !e.target.closest(".marker") && !e.target.closest("[onclick*='focusAsset']")) {
+      pop.classList.remove("show");
+    }
+  }
+});
+</script>
+</body>
+</html>

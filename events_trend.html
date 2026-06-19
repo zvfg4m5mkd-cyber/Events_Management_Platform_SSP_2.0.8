@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.eventsTrend.title">事件趋势看板</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  // 防主题闪烁：尽早应用保存的主题
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+</head>
+<body>
+
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <div>
+        <h1 data-i18n="page.eventsTrend.title">事件趋势看板</h1>
+        <div class="breadcrumb">设备运维BI / 事件趋势看板 · <span id="data-range"></span></div>
+      </div>
+      <div class="row gap-12">
+        <button class="btn btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+          刷新
+        </button>
+        <button class="btn btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          导出报告
+        </button>
+      </div>
+    </div>
+
+    <!-- 多维过滤器（双行 5 列） -->
+    <div class="trend-filter">
+      <div class="tf-cell">
+        <span class="tf-label">设备群组</span>
+        <select id="ft-fleet">
+          <option>全部</option>
+          <option>一号线采掘队</option>
+          <option>二号线采掘队</option>
+          <option>三号线运输队</option>
+          <option>道路维护组</option>
+        </select>
+      </div>
+      <div class="tf-cell">
+        <span class="tf-label">设备型号</span>
+        <select id="ft-model">
+          <option>全部</option>
+          <option>XE5600</option>
+          <option>XE2000</option>
+          <option>GR5505</option>
+          <option>LW1200KN</option>
+          <option>LW1000KN</option>
+        </select>
+      </div>
+      <div class="tf-cell">
+        <span class="tf-label">具体设备</span>
+        <select id="ft-asset">
+          <option>全部</option>
+          <option>XE5600 #001</option>
+          <option>XE2000 #001</option>
+          <option>GR5505 #001</option>
+          <option>LW1200KN #001</option>
+          <option>LW1000KN #001</option>
+        </select>
+      </div>
+      <div class="tf-cell">
+        <span class="tf-label">作业人员</span>
+        <select id="ft-operator">
+          <option>全部</option>
+          <option>张伟</option>
+          <option>李强</option>
+          <option>王磊</option>
+          <option>陈刚</option>
+          <option>系统默认</option>
+        </select>
+      </div>
+      <div class="tf-cell tf-cell-year">
+        <span>📅 年份: 2026</span>
+      </div>
+      <div class="tf-cell">
+        <span class="tf-label">采区主轴</span>
+        <select id="ft-axis">
+          <option>全部</option>
+          <option>主轴一线</option>
+          <option>主轴二线</option>
+          <option>主轴三线</option>
+          <option>其他区域</option>
+        </select>
+      </div>
+      <div class="tf-cell">
+        <span class="tf-label">班次时间</span>
+        <select id="ft-shift">
+          <option>全部</option>
+          <option>A 班 (00:00-08:00)</option>
+          <option>B 班 (08:00-16:00)</option>
+          <option>C 班 (16:00-24:00)</option>
+          <option>D 班 (机动)</option>
+        </select>
+      </div>
+      <div class="tf-cell">
+        <span class="tf-label">事件描述</span>
+        <select id="ft-desc">
+          <option>全部描述</option>
+          <option>制动器相关</option>
+          <option>液压系统</option>
+          <option>燃油系统</option>
+          <option>电控系统</option>
+          <option>安全监测</option>
+        </select>
+      </div>
+      <div class="tf-cell tf-cell-pin" style="grid-column: span 2;">
+        <span class="tf-label">📅 数据跨度</span>
+        <span class="tf-pin-val" id="data-span">01/04/2026 - 13/05/2026</span>
+      </div>
+    </div>
+
+    <!-- 第一排：每日趋势（7） + 按月累计（3） -->
+    <div class="trend-row-1">
+      <div class="tc-card">
+        <div class="tc-head">
+          <h4><span class="tc-icon">📈</span>每日、每月事件频发趋势动态</h4>
+          <span class="tc-sub">单位: 30 MI (万次)</span>
+        </div>
+        <div class="tc-body">
+          <div id="chart-daily" class="chart-1col"></div>
+        </div>
+      </div>
+      <div class="tc-card">
+        <div class="tc-head">
+          <h4><span class="tc-icon">📊</span>按月累计事件统计</h4>
+        </div>
+        <div class="tc-body">
+          <div id="chart-monthly" class="chart-1col"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二排：4 个排行卡 -->
+    <div class="trend-row-2">
+      <div class="tc-card">
+        <div class="tc-head">
+          <h4><span class="tc-icon">🚜</span>警报设备排行</h4>
+        </div>
+        <div class="tc-body">
+          <div class="rank-list" id="rank-asset"></div>
+        </div>
+      </div>
+      <div class="tc-card">
+        <div class="tc-head">
+          <h4><span class="tc-icon">🔔</span>核心事件排行</h4>
+        </div>
+        <div class="tc-body">
+          <div class="rank-list" id="rank-event"></div>
+        </div>
+      </div>
+      <div class="tc-card">
+        <div class="tc-head">
+          <h4><span class="tc-icon">👤</span>操作员警报排行</h4>
+        </div>
+        <div class="tc-body">
+          <div class="rank-list" id="rank-operator"></div>
+        </div>
+      </div>
+      <div class="tc-card shift-card">
+        <div class="tc-head">
+          <h4><span class="tc-icon">📍</span>空间分布与班次</h4>
+        </div>
+        <div class="tc-body">
+          <div class="rank-list" id="rank-local" style="margin-bottom:12px;"></div>
+          <div class="shift-body">
+            <div id="chart-shift" class="shift-pie"></div>
+            <div class="shift-legend" id="shift-legend"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第三排：事件明细表 -->
+    <div class="tc-card" style="padding:0;">
+      <div class="tc-head" style="padding:14px 16px 12px;margin:0;">
+        <h4><span class="tc-icon">📋</span>事件明细记录</h4>
+        <span class="tc-sub">共 <span id="evt-total">0</span> 条记录</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="evt-detail-table">
+          <thead>
+            <tr>
+              <th>设备型号</th>
+              <th>设备资产标签</th>
+              <th>发生精准时间</th>
+              <th>故障/异常事件代码及描述</th>
+              <th>执行班次</th>
+              <th>所属采区轴线</th>
+              <th>操作人员</th>
+              <th>具体物理作业面位置</th>
+            </tr>
+          </thead>
+          <tbody id="evt-tbody"></tbody>
+        </table>
+      </div>
+      <div class="tbl-foot">
+        <div>显示 1-10 条，共 <span id="evt-total-2">0</span> 条</div>
+        <div class="tf-pager">
+          <span class="pg">‹</span>
+          <span class="pg active">1</span>
+          <span class="pg">2</span>
+          <span class="pg">3</span>
+          <span class="pg">…</span>
+          <span class="pg">12</span>
+          <span class="pg">›</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/echarts.min.js"></script>
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  XCMG_NAV.mount("bi-trend");
+
+  // 顶部数据更新时间
+  var d = new Date();
+  document.getElementById("data-range").textContent = "数据更新于 " + d.toLocaleString("zh-CN", {hour12:false});
+
+  /* ================== 数据准备 ================== */
+  // 模拟 4/1 - 5/13 共 43 天的每日事件计数（参考截图波动趋势）
+  var dailyData = [
+    // 4 月（30 天）
+    { d: "04-01", v: 6.2 },{ d: "04-02", v: 7.8 },{ d: "04-03", v: 11.5 },{ d: "04-04", v: 18.3 },
+    { d: "04-05", v: 12.6 },{ d: "04-06", v: 15.2 },{ d: "04-07", v: 22.5 },{ d: "04-08", v: 13.7 },
+    { d: "04-09", v: 7.9 },{ d: "04-10", v: 11.4 },{ d: "04-11", v: 19.6 },{ d: "04-12", v: 26.8 },
+    { d: "04-13", v: 25.2 },{ d: "04-14", v: 18.7 },{ d: "04-15", v: 14.3 },{ d: "04-16", v: 12.9 },
+    { d: "04-17", v: 22.1 },{ d: "04-18", v: 28.5 },{ d: "04-19", v: 17.2 },{ d: "04-20", v: 13.6 },
+    { d: "04-21", v: 11.8 },{ d: "04-22", v: 9.5 },{ d: "04-23", v: 14.7 },{ d: "04-24", v: 19.3 },
+    { d: "04-25", v: 16.8 },{ d: "04-26", v: 12.4 },{ d: "04-27", v: 8.9 },{ d: "04-28", v: 13.5 },
+    { d: "04-29", v: 18.7 },{ d: "04-30", v: 15.6 },
+    // 5 月（13 天）
+    { d: "05-01", v: 9.3 },{ d: "05-02", v: 7.8 },{ d: "05-03", v: 11.6 },{ d: "05-04", v: 14.2 },
+    { d: "05-05", v: 16.8 },{ d: "05-06", v: 12.4 },{ d: "05-07", v: 9.6 },{ d: "05-08", v: 8.3 },
+    { d: "05-09", v: 11.2 },{ d: "05-10", v: 13.8 },{ d: "05-11", v: 10.5 },{ d: "05-12", v: 7.9 },
+    { d: "05-13", v: 5.2 }
+  ];
+
+  // 设备警报排行（基于真实徐工设备 × 编号扩展）
+  var assetRank = [
+    { name: "XE5600 #001 (电铲)",  v: 38121 },
+    { name: "LW1200KN #002 (矿卡)", v: 26626 },
+    { name: "XE2000 #003 (挖掘机)", v: 17817 },
+    { name: "GR5505 #001 (平地机)", v: 12340 },
+    { name: "LW1000KN #001 (装载机)", v: 9856 }
+  ];
+
+  // 核心事件排行
+  var eventRank = [
+    { name: "MA - 前制动器差压过高", v: 141228 },
+    { name: "MA - 燃油压力低警报",   v: 85165 },
+    { name: "OP - 悬挂架超载测试",   v: 36222 },
+    { name: "MA - 液压油温过高",     v: 28940 },
+    { name: "OP - RACK 应力超载",    v: 19580 }
+  ];
+
+  // 操作员警报排行
+  var operatorRank = [
+    { name: "未识别操作员",       v: 82142 },
+    { name: "JOILTON SEREJO",    v: 33040 },
+    { name: "HIARA DE JESUS LIMA", v: 22320 },
+    { name: "张 伟",              v: 18965 },
+    { name: "李 强",              v: 14237 }
+  ];
+
+  // 空间分布
+  var localRank = [
+    { name: "DEP-N4WS-JAC-740-C", v: 82142 },
+    { name: "N4WS-595-CV3",       v: 19384 },
+    { name: "REV-AEROPORTO F.CORREIA", v: 15672 },
+    { name: "DEP-N4WS-JAC-720-A", v: 11283 }
+  ];
+
+  // 班次分布
+  var shiftData = [
+    { name: "A 班", v: 179033 },
+    { name: "B 班", v: 189029 },
+    { name: "C 班", v: 171288 }
+  ];
+
+  // 事件明细
+  var evtDetails = [
+    { model: "XE5600 矿卡",    tag: "5307", time: "2026-04-13 18:11:49", code: "OP - RACK", desc: "(车架扭曲应力超载测试)",      shift: "B 班", axis: "其他区域", op: "系统默认", local: "REV-AEROPORTO F.CORREIA" },
+    { model: "XE5600 矿卡",    tag: "5307", time: "2026-04-13 18:11:59", code: "OP - BIAS", desc: "(设备偏置负载安全倾斜测试)", shift: "B 班", axis: "其他区域", op: "系统默认", local: "REV-AEROPORTO F.CORREIA" },
+    { model: "XE5600 矿卡",    tag: "5307", time: "2026-04-30 18:13:31", code: "OP - BIAS", desc: "(设备偏置负载安全倾斜测试)", shift: "B 班", axis: "其他区域", op: "系统默认", local: "REV-AEROPORTO F.CORREIA" },
+    { model: "XE5600 矿卡",    tag: "5312", time: "2026-05-03 18:08:49", code: "OP - BIAS", desc: "(设备偏置负载安全倾斜测试)", shift: "D 班", axis: "其他区域", op: "系统默认", local: "REV-AEROPORTO F.CORREIA" },
+    { model: "XE2000 挖掘机",  tag: "5512", time: "2026-04-13 19:22:14", code: "MA - HID", desc: "(液压油温过高警告)",          shift: "B 班", axis: "主轴二线",         op: "JOILTON SEREJO", local: "DEP-N4WS-JAC-740-C" },
+    { model: "GR5505 平地机",  tag: "3105", time: "2026-04-15 09:30:05", code: "MA - FUEL", desc: "(燃油压力低警报)",           shift: "A 班", axis: "主轴一线",         op: "HIARA DE JESUS LIMA", local: "N4WS-595-CV3" },
+    { model: "LW1200KN 装载机", tag: "4421", time: "2026-04-18 14:05:32", code: "MA - BRAKE", desc: "(前制动器差压过高)",       shift: "C 班", axis: "主轴三线",         op: "张 伟",      local: "DEP-N4WS-JAC-720-A" },
+    { model: "LW1000KN 装载机", tag: "4502", time: "2026-04-22 10:18:47", code: "OP - SUSP", desc: "(悬挂架超载测试)",          shift: "A 班", axis: "其他区域", op: "李 强",      local: "REV-AEROPORTO F.CORREIA" },
+    { model: "XE5600 矿卡",    tag: "5301", time: "2026-04-25 16:42:11", code: "MA - BRAKE", desc: "(前制动器差压过高)",       shift: "C 班", axis: "主轴二线",         op: "未识别操作员", local: "DEP-N4WS-JAC-740-C" },
+    { model: "XE2000 挖掘机",  tag: "5503", time: "2026-05-02 08:55:23", code: "MA - FUEL", desc: "(燃油压力低警报)",           shift: "A 班", axis: "主轴一线",         op: "JOILTON SEREJO", local: "N4WS-595-CV3" }
+  ];
+
+  /* ================== 渲染排行列表 ================== */
+  function renderRank(containerId, list, mode) {
+    var max = Math.max.apply(null, list.map(function(d){return d.v;}));
+    var html = list.map(function(d){
+      var pct = Math.max(6, Math.round(d.v / max * 100));
+      return '<div class="rank-row rank-row-tinted">' +
+        '<div class="rank-top"><span class="rank-name">' + d.name + '</span>' +
+        '<span class="rank-val">' + d.v.toLocaleString() + '</span></div>' +
+        '<div class="rank-bar"><span style="width:' + pct + '%;"></span></div>' +
+      '</div>';
+    }).join("");
+    document.getElementById(containerId).innerHTML = html;
+  }
+  renderRank("rank-asset",    assetRank);
+  renderRank("rank-event",    eventRank);
+  renderRank("rank-operator", operatorRank);
+  renderRank("rank-local",    localRank.slice(0, 2)); // 空间分布只放 2 条，下方放饼图
+
+  /* ================== 渲染事件表 ================== */
+  document.getElementById("evt-total").textContent = "1,247";
+  document.getElementById("evt-total-2").textContent = "1,247";
+  document.getElementById("evt-tbody").innerHTML = evtDetails.map(function(e){
+    return '<tr>' +
+      '<td>' + e.model + '</td>' +
+      '<td class="evt-tag-cell">' + e.tag + '</td>' +
+      '<td>' + e.time + '</td>' +
+      '<td><span class="evt-code-cell">' + e.code + '</span> <span style="color:var(--text-secondary);">' + e.desc + '</span></td>' +
+      '<td>' + e.shift + '</td>' +
+      '<td>' + e.axis + '</td>' +
+      '<td>' + e.op + '</td>' +
+      '<td>' + e.local + '</td>' +
+    '</tr>';
+  }).join("");
+
+  /* ================== ECharts 图表 ================== */
+  var chartInsts = [];
+
+  function buildChart(domId, optionFactory) {
+    var dom = document.getElementById(domId);
+    var inst = echarts.init(dom);
+    function render() { inst.setOption(optionFactory(), true); }
+    render();
+    chartInsts.push({ dom: dom, inst: inst, render: render });
+  }
+
+  /* —— 1) 每日趋势折线图 —— */
+  buildChart("chart-daily", function(){
+    var p = XCMG_THEME.palette();
+    return {
+      grid: { left: 50, right: 24, top: 30, bottom: 36 },
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: p.tooltipBg,
+        borderColor: p.tooltipBorder,
+        textStyle: { color: p.tooltipText },
+        formatter: function(params){
+          return '<div style="font-size:12px;color:'+p.textMuted+';">2026-' + params[0].axisValue + '</div>' +
+                 '<div style="font-weight:600;color:'+p.warning+';font-size:13px;">事件次数: ' + params[0].data + ' 万</div>';
+        }
+      },
+      xAxis: {
+        type: "category",
+        data: dailyData.map(function(d){ return d.d.replace("-", "/"); }),
+        axisLine:  { lineStyle: { color: p.axisLine } },
+        axisTick:  { show: false },
+        axisLabel: {
+          color: p.textMuted, fontSize: 11,
+          interval: function(idx, val){
+            // 仅显示几个关键日期
+            return ["04/01","04/10","04/20","04/30","05/09","05/13"].indexOf(val) !== -1;
+          },
+          formatter: function(v){
+            if (v === "04/01") return "4月1日";
+            if (v === "04/10") return "4月10日";
+            if (v === "04/20") return "4月20日";
+            if (v === "04/30") return "4月30日";
+            if (v === "05/09") return "5月9日";
+            if (v === "05/13") return "5月13日";
+            return v;
+          }
+        }
+      },
+      yAxis: {
+        type: "value",
+        axisLine:  { show: false },
+        axisTick:  { show: false },
+        axisLabel: { color: p.textMuted, fontSize: 11 },
+        splitLine: { lineStyle: { color: p.splitLine, type: "dashed" } }
+      },
+      series: [{
+        type: "line",
+        data: dailyData.map(function(d){ return d.v; }),
+        smooth: false,
+        symbol: "none",
+        lineStyle: { color: p.warning, width: 2 },
+        itemStyle: { color: p.warning },
+        emphasis: { lineStyle: { width: 3 } }
+      }]
+    };
+  });
+
+  /* —— 2) 按月累计柱状图 —— */
+  buildChart("chart-monthly", function(){
+    var p = XCMG_THEME.palette();
+    return {
+      grid: { left: 12, right: 12, top: 50, bottom: 28, containLabel: true },
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: p.tooltipBg,
+        borderColor: p.tooltipBorder,
+        textStyle: { color: p.tooltipText }
+      },
+      xAxis: {
+        type: "category",
+        data: ["四月", "五月"],
+        axisLine: { lineStyle: { color: p.axisLine } },
+        axisTick: { show: false },
+        axisLabel: { color: p.textMuted, fontSize: 12 }
+      },
+      yAxis: { show: false },
+      series: [{
+        type: "bar",
+        data: [
+          { value: 530904, label: { show: true, position: "top", formatter: "530.904", color: p.textPrimary, fontSize: 12, fontWeight: 600 } },
+          { value: 169630, label: { show: true, position: "top", formatter: "169.630", color: p.textPrimary, fontSize: 12, fontWeight: 600 } }
+        ],
+        barWidth: 38,
+        itemStyle: {
+          color: p.normal,
+          borderRadius: [3, 3, 0, 0]
+        }
+      }]
+    };
+  });
+
+  /* —— 3) 班次饼图 —— */
+  buildChart("chart-shift", function(){
+    var p = XCMG_THEME.palette();
+    var colors = [p.info, p.normal, p.warning];
+    return {
+      tooltip: {
+        trigger: "item",
+        backgroundColor: p.tooltipBg,
+        borderColor: p.tooltipBorder,
+        textStyle: { color: p.tooltipText },
+        formatter: "{b}<br/>事件数: {c}<br/>占比: {d}%"
+      },
+      series: [{
+        type: "pie",
+        radius: ["55%", "85%"],
+        center: ["50%", "50%"],
+        avoidLabelOverlap: false,
+        label: { show: false },
+        labelLine: { show: false },
+        data: shiftData.map(function(d, i){
+          return { name: d.name, value: d.v, itemStyle: { color: colors[i] } };
+        })
+      }]
+    };
+  });
+
+  function renderShiftLegend() {
+    var p = XCMG_THEME.palette();
+    var colors = [p.info, p.normal, p.warning];
+    document.getElementById("shift-legend").innerHTML = shiftData.map(function(d, i){
+      return '<div class="sl-row">' +
+        '<span class="sl-label"><span class="sl-dot" style="background:' + colors[i] + ';"></span>' + d.name + '</span>' +
+        '<span class="sl-val">' + d.v.toLocaleString() + '</span>' +
+      '</div>';
+    }).join("");
+  }
+  renderShiftLegend();
+
+  /* ================== 主题切换重绘 ================== */
+  window.addEventListener("xcmg:themechange", function(){
+    chartInsts.forEach(function(c){ c.render(); });
+    renderShiftLegend();
+  });
+  window.addEventListener("resize", function(){
+    chartInsts.forEach(function(c){ c.inst.resize(); });
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设备主数据导入管理</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+<style>
+/* ========= 设备主数据页（与 fault_registry 视觉一致，列宽优化） ========= */
+.reg-kpi-row .rk-value.tone-normal { color: var(--status-normal, #43A047); }
+
+.am-table th,
+.am-table td { white-space: nowrap; font-size: 13px; }
+.am-table th { background: var(--th-bg, #f7f9fc); color: var(--text-secondary); font-weight: 500; padding: 10px 12px; }
+.am-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-line); color: var(--text-primary); }
+.am-table tr:hover td { background: var(--row-hover, rgba(0, 92, 184, 0.04)); }
+.am-table .row-inactive td { color: var(--text-muted); background: var(--row-inactive, #fafafa); }
+.am-table .row-scrapped td { color: var(--text-muted); text-decoration: line-through; opacity: .65; }
+
+.am-pin    { font-family: "Roboto Mono", Menlo, Consolas, monospace; font-size: 12px; color: var(--xcmg-blue); }
+.am-hy     { font-family: "Roboto Mono", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-secondary); }
+.am-tbox   { font-family: "Roboto Mono", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-secondary); }
+.am-sim    { font-family: "Roboto Mono", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-secondary); }
+.am-cust-id{ font-family: "Roboto Mono", Menlo, Consolas, monospace; font-size: 12px; color: #6b7d99; }
+.am-remark { color: var(--text-secondary); font-size: 12px; }
+.am-updater{ color: var(--text-muted); font-size: 11px; margin-top:2px; }
+
+.am-st-tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; line-height: 1.6; }
+.am-st-active     { background: #e3f5e8; color: #1e8a3a; }
+.am-st-maintain   { background: #fff4e0; color: #b56a00; }
+.am-st-inactive   { background: #f0f1f5; color: #6b7d99; }
+.am-st-scrapped   { background: #fbe5e5; color: #c62828; }
+
+.am-act     { color: var(--xcmg-blue); font-size: 12px; cursor: pointer; }
+.am-act-sep { color: var(--border-line); margin: 0 6px; font-size: 12px; }
+
+/* 暗色适配 */
+html[data-theme="dark"] .am-table th { background: rgba(255,255,255,0.04); }
+html[data-theme="dark"] .am-table tr:hover td { background: rgba(255,255,255,0.04); }
+html[data-theme="dark"] .am-table .row-inactive td { background: rgba(255,255,255,0.02); }
+html[data-theme="dark"] .am-st-active   { background: rgba(46,140,69,0.18);  color: #6cd093; }
+html[data-theme="dark"] .am-st-maintain { background: rgba(181,106,0,0.18);   color: #f0b46c; }
+html[data-theme="dark"] .am-st-inactive { background: rgba(107,125,153,0.20); color: #b0bccc; }
+html[data-theme="dark"] .am-st-scrapped { background: rgba(198,40,40,0.18);   color: #ff8a8a; }
+
+/* 编辑抽屉表单 */
+.am-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; padding: 4px 2px 16px 2px; }
+.am-form-grid .am-fld-full { grid-column: 1 / -1; }
+.am-form-grid label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.am-form-grid label .req { color: #c62828; margin-left: 2px; }
+.am-form-grid input[type=text],
+.am-form-grid select,
+.am-form-grid textarea {
+  width: 100%; box-sizing: border-box; font-size: 13px; color: var(--text-primary);
+  border: 1px solid var(--border-line); border-radius: 4px; padding: 8px 10px;
+  background: var(--card-bg); transition: border-color .15s;
+}
+.am-form-grid input:focus, .am-form-grid select:focus, .am-form-grid textarea:focus {
+  outline: none; border-color: var(--xcmg-blue);
+}
+.am-form-grid textarea { min-height: 64px; resize: vertical; font-family: inherit; }
+.am-form-tip { color: #c62828; font-size: 12px; padding: 0 2px 8px 2px; }
+.am-form-tip.is-ok { color: #1e8a3a; }
+</style>
+</head>
+<body>
+
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <div>
+        <h1>设备主数据导入管理</h1>
+        <div class="breadcrumb">基础数据管理 / 设备主数据</div>
+      </div>
+      <div class="row gap-12">
+        <button class="btn btn-sm" onclick="openImportModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+          导入设备表
+        </button>
+        <button class="btn btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          导出
+        </button>
+        <button class="btn btn-sm btn-primary" onclick="openEditDrawer(null)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          新增设备
+        </button>
+      </div>
+    </div>
+
+    <!-- 顶部 KPI -->
+    <div class="reg-kpi-row">
+      <div class="rk-card">
+        <div class="rk-label">设备总数</div>
+        <div class="rk-value tone-info"><span id="amk-total">0</span><span class="rk-unit">台</span></div>
+      </div>
+      <div class="rk-card">
+        <div class="rk-label">在用</div>
+        <div class="rk-value tone-normal"><span id="amk-active">0</span><span class="rk-unit">台</span></div>
+      </div>
+      <div class="rk-card">
+        <div class="rk-label">维修中</div>
+        <div class="rk-value tone-warning"><span id="amk-maintain">0</span><span class="rk-unit">台</span></div>
+      </div>
+      <div class="rk-card">
+        <div class="rk-label">停用</div>
+        <div class="rk-value tone-muted"><span id="amk-inactive">0</span><span class="rk-unit">台</span></div>
+      </div>
+      <div class="rk-card">
+        <div class="rk-label">报废</div>
+        <div class="rk-value tone-critical"><span id="amk-scrapped">0</span><span class="rk-unit">台</span></div>
+      </div>
+    </div>
+
+    <!-- 筛选栏 + 表格 -->
+    <div class="card" style="padding:0;">
+      <div class="reg-filter-bar">
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" id="amf-keyword" placeholder="搜索 设备型号 / PIN / 汉云ID / 客户 / 备注…" />
+        </div>
+        <select id="amf-model">
+          <option value="">设备型号（全部）</option>
+          <option value="XE5600">XE5600</option>
+          <option value="XE2000">XE2000</option>
+          <option value="GR5505">GR5505</option>
+          <option value="LW1200KN">LW1200KN</option>
+          <option value="LW1000KN">LW1000KN</option>
+        </select>
+        <select id="amf-customer">
+          <option value="">客户（全部）</option>
+          <option value="淡水河谷 (Vale)">淡水河谷 (Vale)</option>
+          <option value="国家能源">国家能源</option>
+          <option value="Glencore">Glencore</option>
+        </select>
+        <select id="amf-area">
+          <option value="">矿区（全部）</option>
+          <option value="S11D">S11D</option>
+          <option value="Carajás N4E">Carajás N4E</option>
+          <option value="鄂尔多斯A区">鄂尔多斯A区</option>
+          <option value="鄂尔多斯B区">鄂尔多斯B区</option>
+          <option value="鄂尔多斯C区">鄂尔多斯C区</option>
+          <option value="Mount Owen">Mount Owen</option>
+        </select>
+        <select id="amf-status">
+          <option value="">设备状态（全部）</option>
+          <option value="active">在用</option>
+          <option value="maintenance">维修中</option>
+          <option value="inactive">停用</option>
+          <option value="scrapped">报废</option>
+        </select>
+        <button class="btn btn-sm" onclick="resetFilter()" style="margin-left:auto;">重置</button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table class="alert-table-v2 am-table">
+          <thead>
+            <tr>
+              <th style="width:36px;text-align:center;"><input type="checkbox" id="am-check-all" onclick="toggleAllCheck(this)"/></th>
+              <th style="width:90px;">设备型号</th>
+              <th style="width:160px;">设备序列号 PIN</th>
+              <th style="width:130px;">汉云设备 ID</th>
+              <th style="width:120px;">车联网终端号</th>
+              <th style="width:140px;">SIM 卡号</th>
+              <th style="width:160px;">客户名称</th>
+              <th style="width:130px;">客户设备 ID</th>
+              <th style="width:120px;">矿区</th>
+              <th style="width:140px;">车队</th>
+              <th style="width:80px;text-align:center;">设备状态</th>
+              <th>备注</th>
+              <th style="width:140px;">最后更新</th>
+              <th style="width:120px;text-align:center;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="am-tbody"></tbody>
+        </table>
+      </div>
+      <div class="reg-table-foot">
+        <div>显示 <span id="am-shown">0</span> 条 / 共 <span id="am-total">0</span> 条</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;font-size:12px;color:var(--text-secondary);cursor:pointer;">‹</span>
+          <span class="pg" style="border:1px solid var(--xcmg-blue);background:var(--xcmg-blue);color:#fff;border-radius:4px;padding:2px 8px;font-size:12px;">1</span>
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;font-size:12px;color:var(--text-secondary);cursor:pointer;">›</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- 编辑抽屉 -->
+<div class="evt-drawer-mask" id="am-mask" onclick="closeEditDrawer()"></div>
+<div class="evt-drawer reg-drawer" id="am-drawer">
+  <div class="ed-head">
+    <div class="ed-title">
+      <h3 id="amd-title">编辑设备</h3>
+      <div class="ed-meta" id="amd-meta"></div>
+    </div>
+    <button class="ed-close" onclick="closeEditDrawer()">×</button>
+  </div>
+  <div class="ed-body" id="amd-body"></div>
+  <div class="ed-foot">
+    <button class="btn btn-sm" onclick="closeEditDrawer()">取消</button>
+    <button class="btn btn-sm btn-primary" onclick="saveEdit()">保存</button>
+  </div>
+</div>
+
+<!-- 导入 modal -->
+<div class="evt-drawer-mask" id="amimp-mask" onclick="closeImportModal()"></div>
+<div class="reg-import-modal" id="amimp-modal">
+  <div class="rim-head">
+    <h3>导入设备表</h3>
+    <button class="ed-close" onclick="closeImportModal()">×</button>
+  </div>
+  <div class="rim-body">
+    <div class="rim-tip">
+      <strong>📥 批量导入说明</strong>
+      <p>支持 .xlsx / .csv 文件。请确保表格包含以下必备列：<code>设备型号</code>、<code>设备序列号PIN</code>、<code>汉云设备ID</code>、<code>车联网终端号</code>、<code>SIM卡号</code>、<code>客户名称</code>、<code>客户设备ID</code>、<code>矿区</code>、<code>车队</code>、<code>设备状态</code>、<code>备注</code>。</p>
+      <p>系统将根据 <strong>设备序列号 PIN</strong> 进行匹配：已存在的 PIN 会触发"覆盖确认"，新 PIN 会自动登记并默认状态为「在用」。</p>
+    </div>
+    <div class="rim-drop" id="amimp-drop">
+      <div class="rim-drop-icon">📂</div>
+      <div class="rim-drop-text">点击或拖拽文件到此处上传</div>
+      <div class="rim-drop-sub">支持 .xlsx / .csv，单文件最大 10 MB</div>
+      <button class="btn btn-sm btn-primary" style="margin-top:14px;" onclick="mockUpload()">选择文件</button>
+    </div>
+    <div class="rim-template">
+      <span>📋 没有模板？</span>
+      <a onclick="alert('已下载示例模板（演示）')">下载导入模板.xlsx</a>
+    </div>
+  </div>
+  <div class="rim-foot">
+    <button class="btn btn-sm" onclick="closeImportModal()">取消</button>
+    <button class="btn btn-sm btn-primary" disabled style="opacity:.6;">开始导入</button>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+/* ============== 工具 ============== */
+function statusTagAM(s) {
+  if (s === "active")      return '<span class="am-st-tag am-st-active">● 在用</span>';
+  if (s === "maintenance") return '<span class="am-st-tag am-st-maintain">⚙ 维修中</span>';
+  if (s === "scrapped")    return '<span class="am-st-tag am-st-scrapped">⊗ 报废</span>';
+  return '<span class="am-st-tag am-st-inactive">○ 停用</span>';
+}
+function nowStr() {
+  var d = new Date();
+  function pad(n){ return n<10 ? "0"+n : ""+n; }
+  return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes());
+}
+function escAttr(s) {
+  return String(s == null ? "" : s).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/* ============== 状态 ============== */
+var allMaster = [];
+var currentList = [];
+var editingPin = null;
+
+document.addEventListener("DOMContentLoaded", function() {
+  XCMG_NAV.mount("data-asset");
+  // 深拷贝
+  allMaster = JSON.parse(JSON.stringify(XCMG_DATA.assetMaster || []));
+  ["amf-keyword","amf-model","amf-customer","amf-area","amf-status"].forEach(function(id){
+    var el = document.getElementById(id);
+    el.addEventListener(id === "amf-keyword" ? "input" : "change", applyFilter);
+  });
+  applyFilter();
+});
+
+function resetFilter() {
+  ["amf-keyword","amf-model","amf-customer","amf-area","amf-status"].forEach(function(id){
+    document.getElementById(id).value = "";
+  });
+  applyFilter();
+}
+
+function applyFilter() {
+  var kw   = (document.getElementById("amf-keyword").value || "").trim().toLowerCase();
+  var md   = document.getElementById("amf-model").value;
+  var cust = document.getElementById("amf-customer").value;
+  var area = document.getElementById("amf-area").value;
+  var st   = document.getElementById("amf-status").value;
+
+  currentList = allMaster.filter(function(it){
+    if (kw) {
+      var hay = [it.model, it.pin, it.hy_id, it.tbox_id, it.sim_no, it.customer, it.customer_asset_id, it.mine_area, it.fleet, it.remark]
+        .filter(Boolean).join(" ").toLowerCase();
+      if (hay.indexOf(kw) < 0) return false;
+    }
+    if (md   && it.model     !== md)   return false;
+    if (cust && it.customer  !== cust) return false;
+    if (area && it.mine_area !== area) return false;
+    if (st   && it.status    !== st)   return false;
+    return true;
+  });
+
+  renderKPI();
+  renderTable();
+}
+
+function renderKPI() {
+  var total      = allMaster.length;
+  var active     = allMaster.filter(function(x){ return x.status === "active"; }).length;
+  var maintain   = allMaster.filter(function(x){ return x.status === "maintenance"; }).length;
+  var inactive   = allMaster.filter(function(x){ return x.status === "inactive"; }).length;
+  var scrapped   = allMaster.filter(function(x){ return x.status === "scrapped"; }).length;
+  document.getElementById("amk-total").textContent    = total;
+  document.getElementById("amk-active").textContent   = active;
+  document.getElementById("amk-maintain").textContent = maintain;
+  document.getElementById("amk-inactive").textContent = inactive;
+  document.getElementById("amk-scrapped").textContent = scrapped;
+}
+
+function renderTable() {
+  var tbody = document.getElementById("am-tbody");
+  if (currentList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:40px;color:var(--text-muted);">没有匹配的设备</td></tr>';
+    document.getElementById("am-shown").textContent = 0;
+    document.getElementById("am-total").textContent = allMaster.length;
+    return;
+  }
+  // 排序：先按客户 → 矿区 → 设备型号 → PIN
+  var sorted = currentList.slice().sort(function(a,b){
+    var c = (a.customer  || "").localeCompare(b.customer  || ""); if (c) return c;
+    var d = (a.mine_area || "").localeCompare(b.mine_area || ""); if (d) return d;
+    var e = (a.model     || "").localeCompare(b.model     || ""); if (e) return e;
+    return (a.pin || "").localeCompare(b.pin || "");
+  });
+  tbody.innerHTML = sorted.map(function(it){
+    var rowCls = it.status === "scrapped" ? "row-scrapped"
+               : it.status === "inactive" ? "row-inactive" : "";
+    return '<tr class="'+rowCls+'">' +
+      '<td style="text-align:center;"><input type="checkbox" class="am-row-check" onclick="event.stopPropagation();"/></td>' +
+      '<td><strong>'+it.model+'</strong></td>' +
+      '<td><span class="am-pin">'+it.pin+'</span></td>' +
+      '<td><span class="am-hy">'+it.hy_id+'</span></td>' +
+      '<td><span class="am-tbox">'+it.tbox_id+'</span></td>' +
+      '<td><span class="am-sim">'+it.sim_no+'</span></td>' +
+      '<td>'+it.customer+'</td>' +
+      '<td><span class="am-cust-id">'+it.customer_asset_id+'</span></td>' +
+      '<td>'+it.mine_area+'</td>' +
+      '<td>'+it.fleet+'</td>' +
+      '<td style="text-align:center;">'+statusTagAM(it.status)+'</td>' +
+      '<td><span class="am-remark">'+(it.remark || "—")+'</span></td>' +
+      '<td><span class="aev-time">'+(it.updated_at || "—")+'</span><div class="am-updater">'+(it.updated_by || "")+'</div></td>' +
+      '<td style="text-align:center;">' +
+        '<a class="am-act" onclick="openEditDrawer(\''+escAttr(it.pin)+'\')">编辑</a>' +
+        '<span class="am-act-sep">|</span>' +
+        '<a class="am-act" onclick="toggleStatus(\''+escAttr(it.pin)+'\')">'+(it.status === "inactive" ? "启用" : "停用")+'</a>' +
+      '</td>' +
+    '</tr>';
+  }).join("");
+  document.getElementById("am-shown").textContent = sorted.length;
+  document.getElementById("am-total").textContent = allMaster.length;
+}
+
+function toggleAllCheck(el) {
+  document.querySelectorAll(".am-row-check").forEach(function(c){ c.checked = el.checked; });
+}
+
+function toggleStatus(pin) {
+  var it = allMaster.find(function(x){ return x.pin === pin; });
+  if (!it) return;
+  var willEnable = it.status === "inactive";
+  if (!confirm((willEnable ? "确定启用 " : "确定停用 ") + it.model + " / " + pin + " 吗？")) return;
+  it.status = willEnable ? "active" : "inactive";
+  it.updated_at = nowStr();
+  it.updated_by = "Emma";
+  applyFilter();
+}
+
+/* ============== 编辑抽屉 ============== */
+function openEditDrawer(pin) {
+  editingPin = pin;
+  var it = pin ? allMaster.find(function(x){ return x.pin === pin; }) : {
+    model:"", pin:"", hy_id:"", tbox_id:"", sim_no:"",
+    customer:"", customer_asset_id:"", mine_area:"", fleet:"",
+    status:"active", remark:"", updated_at:"", updated_by:""
+  };
+  document.getElementById("amd-title").textContent = pin ? "编辑设备 · " + it.model + " / " + it.pin : "新增设备";
+  document.getElementById("amd-meta").textContent  = pin ? "最后更新 " + (it.updated_at || "—") + " by " + (it.updated_by || "—") : "请填写所有必备字段";
+
+  var html = '<div class="am-form-grid">' +
+    '<div><label>设备型号<span class="req">*</span></label>' +
+      '<select id="amd-model">' +
+        '<option value="">请选择</option>' +
+        ["XE5600","XE2000","GR5505","LW1200KN","LW1000KN"].map(function(m){
+          return '<option value="'+m+'" '+(it.model===m?"selected":"")+'>'+m+'</option>';
+        }).join("") +
+      '</select></div>' +
+
+    '<div><label>设备序列号 PIN<span class="req">*</span></label>' +
+      '<input type="text" id="amd-pin" value="'+escAttr(it.pin)+'" placeholder="如 XCMG5600A21X891" /></div>' +
+
+    '<div><label>汉云设备 ID</label>' +
+      '<input type="text" id="amd-hy" value="'+escAttr(it.hy_id)+'" placeholder="如 HY-00023891" /></div>' +
+
+    '<div><label>车联网终端号</label>' +
+      '<input type="text" id="amd-tbox" value="'+escAttr(it.tbox_id)+'" placeholder="如 TBOX-98231" /></div>' +
+
+    '<div><label>SIM 卡号</label>' +
+      '<input type="text" id="amd-sim" value="'+escAttr(it.sim_no)+'" placeholder="如 898600A001234" /></div>' +
+
+    '<div><label>客户名称</label>' +
+      '<input type="text" id="amd-cust" value="'+escAttr(it.customer)+'" placeholder="如 淡水河谷 (Vale)" /></div>' +
+
+    '<div><label>客户设备 ID</label>' +
+      '<input type="text" id="amd-cust-id" value="'+escAttr(it.customer_asset_id)+'" placeholder="如 Excavator801" /></div>' +
+
+    '<div><label>矿区</label>' +
+      '<input type="text" id="amd-area" value="'+escAttr(it.mine_area)+'" placeholder="如 S11D" /></div>' +
+
+    '<div><label>车队</label>' +
+      '<input type="text" id="amd-fleet" value="'+escAttr(it.fleet)+'" placeholder="如 Excavator Fleet" /></div>' +
+
+    '<div><label>设备状态</label>' +
+      '<select id="amd-status">' +
+        '<option value="active"      '+(it.status==="active"?"selected":"")+'>在用</option>' +
+        '<option value="maintenance" '+(it.status==="maintenance"?"selected":"")+'>维修中</option>' +
+        '<option value="inactive"    '+(it.status==="inactive"?"selected":"")+'>停用</option>' +
+        '<option value="scrapped"    '+(it.status==="scrapped"?"selected":"")+'>报废</option>' +
+      '</select></div>' +
+
+    '<div class="am-fld-full"><label>备注</label>' +
+      '<textarea id="amd-remark" placeholder="如 MARC 合同设备 / 海外项目 / 大修中…">'+escAttr(it.remark)+'</textarea></div>' +
+
+    '<div class="am-fld-full am-form-tip" id="amd-tip"></div>' +
+  '</div>';
+
+  document.getElementById("amd-body").innerHTML = html;
+  document.getElementById("am-mask").classList.add("is-open");
+  document.getElementById("am-drawer").classList.add("is-open");
+}
+
+function closeEditDrawer() {
+  document.getElementById("am-mask").classList.remove("is-open");
+  document.getElementById("am-drawer").classList.remove("is-open");
+  editingPin = null;
+}
+
+function saveEdit() {
+  var tip = document.getElementById("amd-tip");
+  tip.classList.remove("is-ok");
+
+  var model    = document.getElementById("amd-model").value;
+  var pin      = (document.getElementById("amd-pin").value || "").trim();
+  var hy       = (document.getElementById("amd-hy").value || "").trim();
+  var tbox     = (document.getElementById("amd-tbox").value || "").trim();
+  var sim      = (document.getElementById("amd-sim").value || "").trim();
+  var cust     = (document.getElementById("amd-cust").value || "").trim();
+  var custId   = (document.getElementById("amd-cust-id").value || "").trim();
+  var area     = (document.getElementById("amd-area").value || "").trim();
+  var fleet    = (document.getElementById("amd-fleet").value || "").trim();
+  var status   = document.getElementById("amd-status").value;
+  var remark   = (document.getElementById("amd-remark").value || "").trim();
+
+  if (!model) { tip.textContent = "请选择设备型号"; return; }
+  if (!pin)   { tip.textContent = "请填写设备序列号 PIN"; return; }
+
+  // 新增时检查 PIN 唯一
+  if (!editingPin) {
+    if (allMaster.some(function(x){ return x.pin === pin; })) {
+      tip.textContent = "PIN 已存在：" + pin + "（请改用编辑）"; return;
+    }
+  } else if (editingPin !== pin) {
+    // 改 PIN 时也要检查
+    if (allMaster.some(function(x){ return x.pin === pin; })) {
+      tip.textContent = "PIN 已被其他设备占用：" + pin; return;
+    }
+  }
+
+  var record = {
+    model: model, pin: pin, hy_id: hy, tbox_id: tbox, sim_no: sim,
+    customer: cust, customer_asset_id: custId,
+    mine_area: area, fleet: fleet, status: status, remark: remark || "—",
+    updated_at: nowStr(), updated_by: "Emma"
+  };
+
+  if (editingPin) {
+    var idx = allMaster.findIndex(function(x){ return x.pin === editingPin; });
+    if (idx >= 0) allMaster[idx] = record;
+  } else {
+    allMaster.unshift(record);
+  }
+
+  tip.textContent = (editingPin ? "已更新：" : "已新增：") + model + " / " + pin;
+  tip.classList.add("is-ok");
+
+  applyFilter();
+  setTimeout(closeEditDrawer, 800);
+}
+
+/* ============== 导入 modal（演示） ============== */
+function openImportModal() {
+  document.getElementById("amimp-mask").classList.add("is-open");
+  document.getElementById("amimp-modal").classList.add("is-open");
+}
+function closeImportModal() {
+  document.getElementById("amimp-mask").classList.remove("is-open");
+  document.getElementById("amimp-modal").classList.remove("is-open");
+}
+function mockUpload() {
+  alert("演示版：实际部署后可对接 .xlsx / .csv 解析。");
+}
+
+/* Esc 优先关闭 modal / 抽屉 */
+document.addEventListener("keydown", function(e){
+  if (e.key === "Escape") {
+    var imp = document.getElementById("amimp-modal");
+    if (imp && imp.classList.contains("is-open")) { closeImportModal(); return; }
+    var dw = document.getElementById("am-drawer");
+    if (dw && dw.classList.contains("is-open")) { closeEditDrawer(); return; }
+  }
+});
+</script>
+</body>
+</html>

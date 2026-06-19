@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.assetDetail.title">设备详情</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+</head>
+<body>
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+
+    <!-- 面包屑 -->
+    <div class="page-title" style="padding-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h1 id="page-h1" style="font-size:18px;" data-i18n="page.assetDetail.title">设备详情</h1>
+        <div class="breadcrumb">首页 / <a href="assets.html" style="color:var(--xcmg-blue);text-decoration:none;">设备视图</a> / <span id="bc-name">—</span></div>
+      </div>
+      <div class="ad-action-bar">
+        <button class="ad-act-monitor" id="btn-go-monitor" onclick="goMonitorSelect()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg>
+          实时监控信息
+        </button>
+      </div>
+    </div>
+
+    <!-- 顶部资产信息条 -->
+    <div class="asset-info-bar" id="asset-info-bar">
+      <!-- 由 JS 注入 -->
+    </div>
+
+    <!-- 详情主体 -->
+    <div class="detail-shell">
+
+      <!-- 左侧次级 Tab -->
+      <aside class="detail-side-tabs">
+        <div class="dst-item active" data-pane="overview" onclick="switchPane('overview')">
+          <span class="dst-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10"/></svg>
+          </span>
+          <span>运行总览</span>
+        </div>
+        <div class="dst-item" data-pane="health" onclick="switchPane('health')">
+          <span class="dst-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </span>
+          <span>健康监控</span>
+          <span class="dst-badge" id="health-badge" style="display:none;">0</span>
+        </div>
+        <div class="dst-item" data-pane="maintenance" onclick="switchPane('maintenance')">
+          <span class="dst-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+          </span>
+          <span>维护保养</span>
+        </div>
+        <div class="dst-item" data-pane="service" onclick="switchPane('service')">
+          <span class="dst-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          </span>
+          <span>服务历史</span>
+        </div>
+        <div class="dst-item" data-pane="timeline" onclick="switchPane('timeline')">
+          <span class="dst-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </span>
+          <span>时间轴流水</span>
+        </div>
+      </aside>
+
+      <!-- 右侧内容区 -->
+      <section class="detail-content">
+
+        <!-- ===== 运行总览 ===== -->
+        <div class="detail-pane active" id="pane-overview">
+
+          <!-- 时间跨度过滤 -->
+          <div class="range-filter">
+            <span class="rf-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              时间跨度
+            </span>
+            <span class="rf-pill" data-range="1">最近 1 天</span>
+            <span class="rf-pill active" data-range="7">最近 7 天</span>
+            <span class="rf-pill" data-range="30">最近 30 天</span>
+            <span class="rf-pill" data-range="90">最近 90 天</span>
+            <span style="margin-left:auto;font-size:12.5px;color:var(--text-muted);">数据更新：<span id="last-update">—</span></span>
+          </div>
+
+          <div class="ov-grid">
+
+            <!-- 左：运行历史时间轴 -->
+            <div>
+              <div class="ov-card">
+                <div class="ov-card-head">
+                  <div class="ov-title">
+                    <svg class="ov-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    运行历史时间轴
+                  </div>
+                  <div class="ov-extra">
+                    <span class="ov-link" onclick="alert('演示：添加事件')">+ 添加事件</span>
+                  </div>
+                </div>
+                <div class="run-tl" id="run-tl"></div>
+              </div>
+            </div>
+
+            <!-- 右：综合健康度 + 维保 + 维修 -->
+            <div>
+
+              <!-- 综合健康度 -->
+              <div class="ov-card">
+                <div class="ov-card-head">
+                  <div class="ov-title">
+                    <svg class="ov-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    设备综合健康度
+                  </div>
+                </div>
+
+                <div class="health-section">
+                  <div class="hs-title">故障诊断代码</div>
+                  <div class="hs-row" id="hs-fault"></div>
+                </div>
+
+                <div class="health-section">
+                  <div class="hs-title">油样与流体分析结果</div>
+                  <div class="hs-row" id="hs-fluid"></div>
+                </div>
+
+                <div class="health-section">
+                  <div class="hs-title">现场点检反馈结果</div>
+                  <div class="hs-row" id="hs-inspect"></div>
+                </div>
+              </div>
+
+              <!-- 预防性维保计划 -->
+              <div class="ov-card">
+                <div class="ov-card-head">
+                  <div class="ov-title">
+                    <svg class="ov-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    预防性维保计划
+                  </div>
+                  <div class="ov-extra" id="maint-extra">剩余 0 项</div>
+                </div>
+                <div id="maint-list"></div>
+              </div>
+
+              <!-- 历史维修与抢修 -->
+              <div class="ov-card">
+                <div class="ov-card-head">
+                  <div class="ov-title">
+                    <svg class="ov-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+                    历史维修与抢修记录
+                  </div>
+                  <div class="ov-extra"><span class="ov-link" onclick="switchPane('service')">查看全部 →</span></div>
+                </div>
+                <div id="repair-list"></div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== 健康监控 = 该设备告警列表 ===== -->
+        <div class="detail-pane" id="pane-health">
+          <div class="detail-kpi-row" id="health-kpi">
+            <!-- KPI 注入 -->
+          </div>
+
+          <!-- 过滤栏 -->
+          <div class="filter-bar" style="margin-bottom:12px;">
+            <div class="search-box">
+              <input type="text" id="h-search" placeholder="搜索告警码 / 描述…" />
+            </div>
+            <select id="h-level">
+              <option value="" data-i18n="common.allLevels">全部等级</option>
+              <option value="critical">严重</option>
+              <option value="warning">中等</option>
+              <option value="info">低</option>
+            </select>
+            <select id="h-status">
+              <option value="" data-i18n="common.allStatus">全部状态</option>
+              <option value="active">活跃</option>
+              <option value="converted">已转事件</option>
+              <option value="ignored">已忽略</option>
+            </select>
+            <div style="margin-left:auto;font-size:12.5px;color:var(--text-muted);" id="h-count">—</div>
+          </div>
+
+          <div class="ov-card" style="padding:0;overflow-x:auto;">
+            <table class="alert-table-v3">
+              <thead>
+                <tr>
+                  <th style="width:88px;">状态</th>
+                  <th style="width:64px;">等级</th>
+                  <th style="width:132px;">首次触发时间</th>
+                  <th style="width:96px;">持续时长</th>
+                  <th style="width:72px;">告警码</th>
+                  <th>告警描述</th>
+                  <th style="width:80px;text-align:center;">是否停机</th>
+                  <th style="width:96px;">来源</th>
+                  <th style="width:200px;text-align:center;">处理</th>
+                </tr>
+              </thead>
+              <tbody id="h-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ===== 维护保养 ===== -->
+        <div class="detail-pane" id="pane-maintenance">
+
+          <div class="ov-card">
+            <div class="ov-card-head">
+              <div class="ov-title">
+                <svg class="ov-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+                未来 30 天维保计划
+              </div>
+              <div class="ov-extra">基于累计工时 <strong id="m-uptime">0</strong> 小时</div>
+            </div>
+            <table class="svc-table">
+              <thead>
+                <tr>
+                  <th style="width:240px;">保养项目</th>
+                  <th style="width:80px;">周期</th>
+                  <th>进度</th>
+                  <th style="width:120px;">剩余</th>
+                  <th style="width:120px;">状态</th>
+                </tr>
+              </thead>
+              <tbody id="m-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="ov-card">
+            <div class="ov-card-head">
+              <div class="ov-title">
+                <svg class="ov-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                已完成保养记录
+              </div>
+            </div>
+            <table class="svc-table">
+              <thead>
+                <tr>
+                  <th style="width:140px;">完成时间</th>
+                  <th>保养项目</th>
+                  <th style="width:120px;">作业人</th>
+                  <th style="width:120px;">工时</th>
+                  <th style="width:120px;">备件成本</th>
+                </tr>
+              </thead>
+              <tbody id="m-done-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ===== 服务历史 ===== -->
+        <div class="detail-pane" id="pane-service">
+          <div class="ov-card">
+            <div class="ov-card-head">
+              <div class="ov-title">
+                <svg class="ov-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+                历史维修与抢修
+              </div>
+              <div class="ov-extra"><span id="s-count">—</span></div>
+            </div>
+            <table class="svc-table">
+              <thead>
+                <tr>
+                  <th style="width:140px;">受理时间</th>
+                  <th style="width:120px;">工单号</th>
+                  <th>故障描述 / 处理结果</th>
+                  <th style="width:120px;">类别</th>
+                  <th style="width:90px;">优先级</th>
+                  <th style="width:120px;">处理人</th>
+                  <th style="width:90px;">状态</th>
+                </tr>
+              </thead>
+              <tbody id="s-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ===== 时间轴流水 ===== -->
+        <div class="detail-pane" id="pane-timeline">
+          <div class="ov-card">
+            <div class="ov-card-head">
+              <div class="ov-title">
+                <svg class="ov-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                设备完整时间轴流水
+              </div>
+              <div class="ov-extra">合并告警 / 工单 / 维保 / 状态变更</div>
+            </div>
+            <div class="flow-timeline" id="flow-timeline"></div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+</div>
+
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/alh_modal.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/echarts.min.js"></script>
+<script>
+/* —— URL 参数 —— */
+function getQuery(name) {
+  var s = window.location.search.substring(1);
+  var p = s.split("&");
+  for (var i = 0; i < p.length; i++) {
+    var kv = p[i].split("=");
+    if (decodeURIComponent(kv[0]) === name) return decodeURIComponent(kv[1] || "");
+  }
+  return "";
+}
+
+var ASSET_ID = getQuery("id") || "XE5600-001";
+var ASSET = null;
+var ASSET_ALERTS = [];
+var ASSET_EVENTS = [];
+var ASSET_FLUID = null;
+var ASSET_INSPECT = null;
+var CURRENT_RANGE = 7;
+var trendCharts = [];
+
+/* —— Mock 维保计划 / 已完成保养（按 asset.uptime_hours 推算） —— */
+var MAINT_TEMPLATES = [
+  { name: "发动机机油及滤清器更换", interval: 250, last_offset: 237, parts: 1280 },
+  { name: "工作装置液压油路系统点检", interval: 500, last_offset: 455, parts: 0 },
+  { name: "空气滤清器清洁/更换",      interval: 500, last_offset: 320, parts: 480 },
+  { name: "变速箱油及滤芯更换",        interval: 1000, last_offset: 740, parts: 2350 },
+  { name: "整机润滑加注",              interval: 250, last_offset: 110, parts: 0 },
+  { name: "传动系统综合检查",          interval: 2000, last_offset: 1620, parts: 0 }
+];
+var MAINT_DONE_TEMPLATES = [
+  { offset_days: 6,  name: "发动机机油及滤清器更换",   worker: "张伟", hours: 1.5, parts: 1280 },
+  { offset_days: 18, name: "整机润滑加注",             worker: "李强", hours: 0.8, parts: 0 },
+  { offset_days: 32, name: "空气滤清器清洁",           worker: "王磊", hours: 0.5, parts: 0 },
+  { offset_days: 55, name: "工作装置液压油路系统点检", worker: "赵军", hours: 2.0, parts: 0 },
+  { offset_days: 76, name: "蓄电池组电压检查",         worker: "陈刚", hours: 0.6, parts: 320 }
+];
+
+/* —— 工具：日期减天数 → YYYY-MM-DD —— */
+function dateOffset(days) {
+  var d = new Date();
+  d.setDate(d.getDate() - days);
+  var m = d.getMonth() + 1;
+  var dd = d.getDate();
+  return d.getFullYear() + "-" + (m < 10 ? "0" + m : m) + "-" + (dd < 10 ? "0" + dd : dd);
+}
+
+/* —— 启动 —— */
+document.addEventListener("DOMContentLoaded", function() {
+  XCMG_NAV.mount("assets");
+
+  ASSET = XCMG_DATA.getAssetById(ASSET_ID);
+  if (!ASSET) {
+    document.querySelector(".app-main").innerHTML =
+      '<div class="page-title"><h1>设备未找到</h1></div>' +
+      '<div class="card" style="padding:20px;">未找到 ID 为 <strong>' + ASSET_ID + '</strong> 的设备。<br><br>' +
+      '<a href="assets.html" class="btn btn-primary">← 返回设备列表</a></div>';
+    return;
+  }
+
+  ASSET_ALERTS = XCMG_DATA.alerts.filter(function(a){ return a.asset_id === ASSET_ID; });
+  ASSET_EVENTS = XCMG_DATA.events.filter(function(e){ return e.asset_id === ASSET_ID; });
+  ASSET_FLUID  = (XCMG_DATA.fluidAnalysis  || []).find(function(f){ return f.asset_id === ASSET_ID; });
+  ASSET_INSPECT = (XCMG_DATA.inspections    || []).find(function(i){ return i.asset_id === ASSET_ID; });
+
+  document.title = ASSET.name + " - 设备详情";
+  document.getElementById("page-h1").textContent = "设备详情 · " + ASSET.name;
+  document.getElementById("bc-name").textContent = ASSET.name;
+  document.getElementById("last-update").textContent = ASSET.last_alarm_time;
+
+  renderInfoBar();
+  renderOverview();
+  renderHealth();
+  renderMaintenance();
+  renderService();
+  renderTimeline();
+
+  // 时间跨度切换
+  document.querySelectorAll(".rf-pill").forEach(function(p){
+    p.addEventListener("click", function(){
+      document.querySelectorAll(".rf-pill").forEach(function(o){ o.classList.remove("active"); });
+      p.classList.add("active");
+      CURRENT_RANGE = parseInt(p.getAttribute("data-range")) || 7;
+      renderOverview();
+      renderHealth();
+    });
+  });
+
+  // 健康过滤器
+  document.getElementById("h-search").addEventListener("input", renderHealthTable);
+  document.getElementById("h-level").addEventListener("change", renderHealthTable);
+  document.getElementById("h-status").addEventListener("change", renderHealthTable);
+
+  // ESC 关闭抽屉
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape") closeAlertDrawer();
+  });
+
+  // 主题切换重绘趋势缩略
+  window.addEventListener("xcmg:themechange", function(){
+    setTimeout(renderHealthTable, 50);
+  });
+});
+
+/* —— Tab 切换 —— */
+function switchPane(p) {
+  document.querySelectorAll(".dst-item").forEach(function(it){
+    it.classList.toggle("active", it.getAttribute("data-pane") === p);
+  });
+  document.querySelectorAll(".detail-pane").forEach(function(pa){
+    pa.classList.toggle("active", pa.id === "pane-" + p);
+  });
+  if (p === "health") {
+    setTimeout(renderHealthTable, 30);
+  }
+}
+
+/* —— 跳转实时监控信息选择 —— */
+function goMonitorSelect() {
+  window.location.href = "monitor_select.html?id=" + encodeURIComponent(ASSET_ID);
+}
+
+/* —— 顶部资产信息条 —— */
+function renderInfoBar() {
+  var statusMap = {
+    normal:   { label: "设备正常运行", sub: "智能网关持续在线 · 数据正常上报", cls: "aib-status-on" },
+    warning:  { label: "设备预警中",   sub: "存在中等级别告警，建议关注",     cls: "aib-status-warn" },
+    critical: { label: "设备异常",     sub: "存在严重告警，需立即处理",       cls: "aib-status-crit" },
+    muted:    { label: "设备离线",     sub: "网关失联，无最新数据",            cls: "aib-status-off" }
+  };
+  var st = statusMap[ASSET.status] || statusMap.muted;
+
+  // 简单"出厂年份"推算（用 SN 中的 4 位年份）
+  var year = (ASSET.sn.match(/-(20\d{2})-/) || [,"2021"])[1];
+
+  var html =
+    '<a class="aib-back" href="assets.html" title="返回设备列表">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>' +
+    '</a>' +
+    '<div class="aib-photo-block" title="' + ASSET.model + '"><img class="aib-photo" src="img/' + ASSET.model + '.jpg" alt="' + ASSET.model + '" onerror="this.onerror=null;this.style.display=\'none\';this.parentNode.classList.add(\'no-photo\');"/></div>' +
+    '<div class="aib-block" style="display:flex;align-items:center;">' +
+      '<span class="aib-tag">' + ASSET.category + '</span>' +
+      '<div style="min-width:0;flex:1;">' +
+        '<div class="aib-label">资产编号</div>' +
+        '<div class="aib-value">' + ASSET.id + '<span style="color:var(--text-muted);font-weight:400;margin-left:8px;font-size:13px;">|</span> <span style="color:var(--text-secondary);font-weight:500;font-size:13.5px;">' + ASSET.name + '</span></div>' +
+        '<div class="aib-sub" title="' + ASSET.spec + '">' + ASSET.spec + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="aib-block">' +
+      '<div class="aib-label">设备当前状态</div>' +
+      '<div class="aib-value ' + st.cls + '">' + st.label + '</div>' +
+      '<div class="aib-sub">' + st.sub + '</div>' +
+    '</div>' +
+    '<div class="aib-block">' +
+      '<div class="aib-label">出厂年份</div>' +
+      '<div class="aib-value">' + year + '</div>' +
+      '<div class="aib-sub">累计工时：<strong style="color:var(--text-secondary);">' + ASSET.uptime_hours.toLocaleString() + '</strong> 小时</div>' +
+    '</div>' +
+    '<div class="aib-block">' +
+      '<div class="aib-label">服务团队</div>' +
+      '<div class="aib-value">徐工矿山服务中心</div>' +
+      '<div class="aib-sub">' + ASSET.fleet + ' · ' + ASSET.location + '</div>' +
+    '</div>';
+
+  document.getElementById("asset-info-bar").innerHTML = html;
+}
+
+/* —— 运行总览 —— */
+function renderOverview() {
+  // 按时间跨度过滤事件，最近 N 天
+  var nowMs = Date.now();
+  var rangeMs = CURRENT_RANGE * 86400000;
+
+  // 合并告警 + 工单 → 时间轴节点
+  var events = [];
+  ASSET_ALERTS.forEach(function(a){
+    var t = new Date(a.last_occurred.replace(" ", "T")).getTime();
+    if (nowMs - t > rangeMs && CURRENT_RANGE < 90) return;
+    events.push({
+      date: a.last_occurred.substring(0, 10),
+      time: a.last_occurred.substring(11),
+      type: "alert",
+      level: a.level,
+      title: "[" + a.code + "] " + a.title,
+      desc: a.desc
+    });
+  });
+  ASSET_EVENTS.forEach(function(e){
+    var t = new Date(e.created_at.replace(" ", "T")).getTime();
+    if (nowMs - t > rangeMs && CURRENT_RANGE < 90) return;
+    events.push({
+      date: e.created_at.substring(0, 10),
+      time: e.created_at.substring(11),
+      type: "event",
+      level: e.level,
+      title: "[工单] " + e.title,
+      desc: "处理人 " + e.handler + " · 状态：" + ({pending:"待处理",processing:"处理中",closed:"已闭环"})[e.status]
+    });
+  });
+
+  // 状态变更（mock 1-2 条）
+  events.push({ date: dateOffset(0), time: "08:30:00", type: "status", level: "normal", title: "设备状态变更", desc: "设备切换为开机状态" });
+  if (CURRENT_RANGE >= 1) {
+    events.push({ date: dateOffset(1), time: "18:42:00", type: "status", level: "muted", title: "设备状态变更", desc: "设备切换为关机状态" });
+  }
+
+  events.sort(function(a, b){ return (b.date + b.time).localeCompare(a.date + a.time); });
+
+  // 按日期分组
+  var byDay = {};
+  events.forEach(function(e){
+    if (!byDay[e.date]) byDay[e.date] = [];
+    byDay[e.date].push(e);
+  });
+
+  var days = Object.keys(byDay).sort(function(a,b){ return b.localeCompare(a); });
+  var html = "";
+  if (days.length === 0) {
+    html = '<div class="text-sm muted" style="padding:20px 0;text-align:center;">所选时间跨度内无运行事件</div>';
+  } else {
+    days.forEach(function(d, idx){
+      var pillClass = idx === 0 ? "" : "is-light";
+      html += '<div class="run-tl-day">';
+      html +=   '<span class="run-tl-pill ' + pillClass + '">' + d + '</span>';
+      byDay[d].forEach(function(e){
+        var levelCls = e.level === "critical" ? "is-critical" : e.level === "warning" ? "is-warning" : "";
+        html += '<div class="run-tl-event ' + levelCls + '">';
+        html +=   '<div class="rte-title">' + e.title + ' <span class="rte-time">' + (e.time || "") + '</span></div>';
+        html +=   '<div class="rte-desc">' + e.desc + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+  }
+  document.getElementById("run-tl").innerHTML = html;
+
+  // 综合健康度统计
+  var fault = { crit: 0, warn: 0, info: 0 };
+  ASSET_ALERTS.filter(function(a){ return a.status === "active"; }).forEach(function(a){
+    if (a.level === "critical") fault.crit++;
+    else if (a.level === "warning") fault.warn++;
+    else fault.info++;
+  });
+  document.getElementById("hs-fault").innerHTML =
+    '<span class="hs-cell"><span class="hs-dot dot-crit"></span><span class="hs-num">' + fault.crit + '</span> 严重故障</span>' +
+    '<span class="hs-cell"><span class="hs-dot dot-warn"></span><span class="hs-num">' + fault.warn + '</span> 中度警告</span>' +
+    '<span class="hs-cell"><span class="hs-dot dot-info"></span><span class="hs-num">' + fault.info + '</span> 轻度提示</span>';
+
+  // 油样
+  var fluidStat = { crit: 0, warn: 0, normal: 0 };
+  if (ASSET_FLUID) {
+    if (ASSET_FLUID.status === "critical") fluidStat.crit++;
+    else if (ASSET_FLUID.status === "warning") fluidStat.warn++;
+    else fluidStat.normal++;
+  } else {
+    fluidStat.normal = 1;
+  }
+  document.getElementById("hs-fluid").innerHTML =
+    '<span class="hs-cell"><span class="hs-dot dot-crit"></span><span class="hs-num">' + fluidStat.crit + '</span> 需立即行动</span>' +
+    '<span class="hs-cell"><span class="hs-dot dot-warn"></span><span class="hs-num">' + fluidStat.warn + '</span> 持续监控</span>' +
+    '<span class="hs-cell"><span class="hs-dot dot-normal"></span><span class="hs-num">' + fluidStat.normal + '</span> 正常无需操作</span>';
+
+  // 点检
+  var inspStat = { crit: 0, warn: 0, normal: 0 };
+  if (ASSET_INSPECT) {
+    ASSET_INSPECT.items.forEach(function(it){
+      if (it.result === "critical") inspStat.crit++;
+      else if (it.result === "warning") inspStat.warn++;
+      else inspStat.normal++;
+    });
+  }
+  document.getElementById("hs-inspect").innerHTML =
+    '<span class="hs-cell"><span class="hs-dot dot-crit"></span><span class="hs-num">' + inspStat.crit + '</span> 异常</span>' +
+    '<span class="hs-cell"><span class="hs-dot dot-warn"></span><span class="hs-num">' + inspStat.warn + '</span> 关注</span>' +
+    '<span class="hs-cell"><span class="hs-dot dot-normal"></span><span class="hs-num">' + inspStat.normal + '</span> 正常</span>';
+
+  // 维保计划（侧栏 Top 3）
+  var maintItems = MAINT_TEMPLATES.map(function(m){
+    var remain = m.interval - m.last_offset;
+    var dotCls = remain < 50 ? "dot-warn" : remain < 20 ? "dot-crit" : "dot-normal";
+    return { name: m.name, interval: m.interval, remain: remain, dotCls: dotCls };
+  }).sort(function(a, b){ return a.remain - b.remain; });
+
+  document.getElementById("maint-extra").textContent = "剩余 " + maintItems.length + " 项";
+  document.getElementById("maint-list").innerHTML = maintItems.slice(0, 3).map(function(m){
+    return '<div class="maint-row">' +
+      '<span class="mr-dot ' + m.dotCls + '"></span>' +
+      '<span class="mr-name">' + m.name + ' (' + m.interval + 'H)</span>' +
+      '<span class="mr-meta">剩余 <strong>' + m.remain.toFixed(1) + '</strong> 小时</span>' +
+    '</div>';
+  }).join('');
+
+  // 历史维修（侧栏 Top 3，从已闭环工单）
+  var repairs = ASSET_EVENTS.filter(function(e){ return e.status === "closed"; });
+  // 不够则补 mock
+  while (repairs.length < 3) {
+    repairs.push({
+      id: "EVT-MOCK-" + (repairs.length + 1),
+      title: ["更换左侧履带张紧油缸密封圈", "修复车载无线通信链路间歇故障", "更换液压油及滤芯"][repairs.length] || "常规保养",
+      updated_at: dateOffset(repairs.length * 14 + 6) + " 16:00",
+      status: "closed"
+    });
+  }
+  document.getElementById("repair-list").innerHTML = repairs.slice(0, 3).map(function(r){
+    return '<div class="maint-row">' +
+      '<span class="mr-dot dot-normal"></span>' +
+      '<span class="mr-name">已完成 - ' + r.title + '</span>' +
+      '<span class="mr-meta">' + r.updated_at.substring(0, 10) + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+/* —— 健康监控 —— */
+function renderHealth() {
+  var stats = { crit: 0, warn: 0, info: 0, active: 0, resolved: 0 };
+  ASSET_ALERTS.forEach(function(a){
+    if (a.level === "critical") stats.crit++;
+    else if (a.level === "warning") stats.warn++;
+    else stats.info++;
+    if (a.status === "active") stats.active++;
+    else stats.resolved++;
+  });
+  document.getElementById("health-kpi").innerHTML =
+    '<div class="dkpi tone-active"><div class="dk-label">活跃告警</div><div class="dk-value">' + stats.active + '<span class="dk-unit">条</span></div></div>' +
+    '<div class="dkpi tone-crit"><div class="dk-label">严重</div><div class="dk-value">' + stats.crit + '<span class="dk-unit">条</span></div></div>' +
+    '<div class="dkpi tone-warn"><div class="dk-label">中等</div><div class="dk-value">' + stats.warn + '<span class="dk-unit">条</span></div></div>' +
+    '<div class="dkpi tone-info"><div class="dk-label">低</div><div class="dk-value">' + stats.info + '<span class="dk-unit">条</span></div></div>' +
+    '<div class="dkpi tone-resolved"><div class="dk-label">已解决</div><div class="dk-value">' + stats.resolved + '<span class="dk-unit">条</span></div></div>';
+
+  // 侧栏 badge
+  var b = document.getElementById("health-badge");
+  if (stats.active > 0) { b.style.display = ""; b.textContent = stats.active; }
+  else { b.style.display = "none"; }
+
+  renderHealthTable();
+}
+
+function renderHealthTable() {
+  var q = (document.getElementById("h-search").value || "").trim().toLowerCase();
+  var lvl = document.getElementById("h-level").value;
+  var st = document.getElementById("h-status").value;
+
+  var list = ASSET_ALERTS.filter(function(a){
+    if (lvl && a.level !== lvl) return false;
+    if (st && a.status !== st) return false;
+    if (q) {
+      return a.code.toLowerCase().indexOf(q) > -1 ||
+             a.title.toLowerCase().indexOf(q) > -1 ||
+             a.desc.toLowerCase().indexOf(q) > -1;
+    }
+    return true;
+  });
+
+  // 按等级 + 时间排序
+  var lvlOrder = { critical: 0, warning: 1, info: 2 };
+  list.sort(function(a, b){
+    var d = (lvlOrder[a.level] || 9) - (lvlOrder[b.level] || 9);
+    if (d !== 0) return d;
+    return b.last_occurred.localeCompare(a.last_occurred);
+  });
+
+  document.getElementById("h-count").textContent = "共 " + list.length + " 条 · 总计 " + ASSET_ALERTS.length + " 条";
+
+  // 销毁旧 chart 实例（v1.8.6 已不再渲染缩略趋势，但保留兼容）
+  trendCharts.forEach(function(c){ try { c.dispose(); } catch(e){} });
+  trendCharts = [];
+
+  document.getElementById("h-tbody").innerHTML = list.map(function(a){
+    return renderHealthRow(a);
+  }).join('');
+}
+
+/* —— v1.8.6 健康监控单行渲染（与告警视图一致，去掉设备列） —— */
+function renderHealthRow(a) {
+  var rowCls = a.level === "critical" ? " row-crit" : "";
+  var status = a.status || "active";
+
+  // 状态 tag
+  var stMap = {
+    active:    { txt:"活跃",     cls:"al-st-active" },
+    converted: { txt:"已转事件", cls:"al-st-converted" },
+    ignored:   { txt:"已忽略",   cls:"al-st-ignored" }
+  };
+  var st = stMap[status] || stMap.active;
+  var stHtml = '<span class="al-st-tag ' + st.cls + '"><span class="al-st-dot"></span>' + st.txt + '</span>';
+
+  // 等级 tag
+  var lvMap = { critical:{txt:"严重",cls:"lv-3"}, warning:{txt:"中等",cls:"lv-2"}, info:{txt:"低",cls:"lv-1"} };
+  var lv = lvMap[a.level] || lvMap.info;
+  var lvHtml = '<span class="lv-tag ' + lv.cls + '">' + lv.txt + '</span>';
+
+  // 时间 / 时长
+  var firstAt = '<span class="al-time">' + (a.first_occurred || "—") + '</span>';
+  var dur = fmtDurationH(a.first_occurred, a.last_occurred);
+  var durHtml = '<span class="al-dur' + (status==="active"?" is-live":"") + '">' + dur + '</span>';
+
+  // 告警码
+  var codeHtml = '<span class="al-code">' + (a.code || "—") + '</span>';
+
+  // 告警描述
+  var descHtml =
+    '<div class="al-desc-main">' + (a.title || "") + '</div>' +
+    (a.desc ? '<div class="al-desc-sub"><span class="al-desc-detail">' + a.desc + '</span></div>' : '');
+
+  // 是否停机
+  var dt = a.downtime || (a.level === "critical" ? "yes" : "no");
+  var dtHtml = dt === "yes"
+    ? '<span class="al-dt al-dt-yes">是</span>'
+    : '<span class="al-dt al-dt-no">否</span>';
+
+  // 来源
+  var srcHtml = '<span class="al-source">' + (a.source || "—") + '</span>';
+
+  // 处理列
+  var disabled = status !== "active";
+  var actHtml =
+    '<div class="al-actions" onclick="event.stopPropagation();">' +
+      '<button class="al-act al-act-view" onclick="event.stopPropagation();openAlertDrawer(\'' + a.id + '\')">查看</button>' +
+      '<button class="al-act al-act-conv" ' + (disabled?'disabled':'') + ' onclick="event.stopPropagation();handleHealthConvert(\'' + a.id + '\')">转事件</button>' +
+      '<button class="al-act al-act-ign" ' + (disabled?'disabled':'') + ' onclick="event.stopPropagation();handleHealthIgnore(\'' + a.id + '\')">忽略</button>' +
+    '</div>';
+
+  return '<tr class="al-row' + rowCls + '" onclick="openAlertDrawer(\'' + a.id + '\')">' +
+    '<td>' + stHtml + '</td>' +
+    '<td>' + lvHtml + '</td>' +
+    '<td>' + firstAt + '</td>' +
+    '<td>' + durHtml + '</td>' +
+    '<td>' + codeHtml + '</td>' +
+    '<td style="min-width:240px;">' + descHtml + '</td>' +
+    '<td style="text-align:center;">' + dtHtml + '</td>' +
+    '<td>' + srcHtml + '</td>' +
+    '<td style="text-align:center;">' + actHtml + '</td>' +
+  '</tr>';
+}
+
+/* —— 时间解析 + 持续时长 —— */
+function parseDTH(s) {
+  if (!s) return null;
+  var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+  if (!m) return null;
+  return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
+}
+function fmtDurationH(start, end) {
+  var s = parseDTH(start), e = parseDTH(end);
+  if (!s || !e) return "—";
+  var diff = Math.max(0, e - s);
+  var min = Math.floor(diff / 60000);
+  if (min < 60) return min + " 分钟";
+  var h = Math.floor(min / 60);
+  var rmin = min % 60;
+  if (h < 24) return h + " 小时" + (rmin > 0 ? " " + rmin + " 分" : "");
+  var d = Math.floor(h / 24);
+  var rh = h % 24;
+  return d + " 天" + (rh > 0 ? " " + rh + " 小时" : "");
+}
+
+/* —— 处理：转事件 —— */
+function handleHealthConvert(alertId) {
+  var a = null;
+  for (var i=0;i<XCMG_DATA.alerts.length;i++){ if (XCMG_DATA.alerts[i].id===alertId){a=XCMG_DATA.alerts[i];break;} }
+  if (!a) return;
+  if (!confirm("确认将告警「" + a.code + " " + a.title + "」转为事件工单？")) return;
+  a.status = "converted";
+  alert("已转事件，将跳转到事件中心。");
+  window.location.href = "events.html";
+}
+
+/* —— 处理：忽略 —— */
+function handleHealthIgnore(alertId) {
+  var a = null;
+  for (var i=0;i<XCMG_DATA.alerts.length;i++){ if (XCMG_DATA.alerts[i].id===alertId){a=XCMG_DATA.alerts[i];break;} }
+  if (!a) return;
+  if (!confirm("确认忽略告警「" + a.code + " " + a.title + "」？")) return;
+  a.status = "ignored";
+  // 同步重建 ASSET_ALERTS 引用并重渲染
+  ASSET_ALERTS = XCMG_DATA.alerts.filter(function(x){ return x.asset_id === ASSET_ID; });
+  renderHealthKPI();
+}
+
+
+/* —— 维护保养 —— */
+function renderMaintenance() {
+  document.getElementById("m-uptime").textContent = ASSET.uptime_hours.toLocaleString();
+
+  document.getElementById("m-tbody").innerHTML = MAINT_TEMPLATES.map(function(m){
+    var pct = Math.round(m.last_offset / m.interval * 100);
+    var remain = m.interval - m.last_offset;
+    var stCls = remain < 20 ? "is-bad" : remain < 50 ? "" : "is-ok";
+    var stPill = remain < 20
+      ? '<span class="status-pill pill-critical"><span class="dot"></span>临近</span>'
+      : remain < 50
+      ? '<span class="status-pill pill-warning"><span class="dot"></span>关注</span>'
+      : '<span class="status-pill pill-normal"><span class="dot"></span>正常</span>';
+    return '<tr>' +
+      '<td><strong>' + m.name + '</strong></td>' +
+      '<td>' + m.interval + ' 小时</td>' +
+      '<td><span class="progress-mini ' + stCls + '"><span style="width:' + pct + '%;"></span></span> <span class="text-sm muted" style="margin-left:8px;">' + pct + '%</span></td>' +
+      '<td><strong>' + remain.toFixed(1) + '</strong> 小时</td>' +
+      '<td>' + stPill + '</td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById("m-done-tbody").innerHTML = MAINT_DONE_TEMPLATES.map(function(d){
+    return '<tr>' +
+      '<td>' + dateOffset(d.offset_days) + '</td>' +
+      '<td>' + d.name + '</td>' +
+      '<td>' + d.worker + '</td>' +
+      '<td>' + d.hours + ' h</td>' +
+      '<td>' + (d.parts > 0 ? "¥ " + d.parts.toLocaleString() : "—") + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* —— 服务历史 —— */
+function renderService() {
+  // 综合：events + 已完成保养
+  var rows = [];
+  ASSET_EVENTS.forEach(function(e){
+    rows.push({
+      time: e.created_at,
+      id: e.id,
+      title: e.title + (e.handling_opinion ? '<div class="text-sm muted" style="margin-top:3px;">' + e.handling_opinion + '</div>' : ''),
+      category: e.category,
+      priority: e.priority,
+      handler: e.handler,
+      status: e.status,
+      kind: "event"
+    });
+  });
+  MAINT_DONE_TEMPLATES.forEach(function(d){
+    rows.push({
+      time: dateOffset(d.offset_days) + " 14:00",
+      id: "MNT-" + dateOffset(d.offset_days).replace(/-/g, ""),
+      title: "[计划保养] " + d.name + '<div class="text-sm muted" style="margin-top:3px;">用时 ' + d.hours + ' h · 备件 ¥ ' + d.parts.toLocaleString() + '</div>',
+      category: "计划保养",
+      priority: "low",
+      handler: d.worker,
+      status: "closed",
+      kind: "maint"
+    });
+  });
+  rows.sort(function(a, b){ return b.time.localeCompare(a.time); });
+
+  document.getElementById("s-count").textContent = "共 " + rows.length + " 条记录";
+  document.getElementById("s-tbody").innerHTML = rows.map(function(r){
+    var statusPill;
+    if (r.status === "closed") statusPill = '<span class="status-pill pill-normal"><span class="dot"></span>已闭环</span>';
+    else if (r.status === "processing") statusPill = '<span class="status-pill pill-info"><span class="dot"></span>处理中</span>';
+    else statusPill = '<span class="status-pill pill-warning"><span class="dot"></span>待处理</span>';
+
+    var prMap = { high: "高", medium: "中", low: "低" };
+    var prColor = { high: "#E53935", medium: "#FB8C00", low: "#5A6478" };
+    return '<tr>' +
+      '<td class="text-sm">' + r.time + '</td>' +
+      '<td><span style="font-weight:600;color:var(--xcmg-blue);">' + r.id + '</span></td>' +
+      '<td>' + r.title + '</td>' +
+      '<td><span class="text-sm muted">' + r.category + '</span></td>' +
+      '<td style="color:' + (prColor[r.priority] || "#5A6478") + ';font-weight:600;">' + (prMap[r.priority] || "—") + '</td>' +
+      '<td>' + r.handler + '</td>' +
+      '<td>' + statusPill + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* —— 时间轴流水 —— */
+function renderTimeline() {
+  var items = [];
+  ASSET_ALERTS.forEach(function(a){
+    items.push({
+      time: a.last_occurred,
+      level: a.level,
+      title: "[告警] " + a.code + " · " + a.title,
+      desc: a.desc + "（共发生 " + a.occurrence_count + " 次 · " + (a.status === "active" ? "活跃中" : a.status === "converted" ? "已转事件" : a.status === "ignored" ? "已忽略" : "已解决") + "）"
+    });
+  });
+  ASSET_EVENTS.forEach(function(e){
+    e.steps.forEach(function(s){
+      items.push({
+        time: s.time,
+        level: e.status === "closed" ? "normal" : e.level,
+        title: "[工单 " + e.id + "] " + s.action,
+        desc: s.actor + " · " + s.note
+      });
+    });
+  });
+  MAINT_DONE_TEMPLATES.forEach(function(d){
+    items.push({
+      time: dateOffset(d.offset_days) + " 14:00",
+      level: "normal",
+      title: "[保养] " + d.name + " 完成",
+      desc: "作业人 " + d.worker + " · 用时 " + d.hours + " h"
+    });
+  });
+
+  items.sort(function(a, b){ return b.time.localeCompare(a.time); });
+
+  var html = items.map(function(it){
+    var cls = it.level === "critical" ? "is-crit" : it.level === "warning" ? "is-warn" : it.level === "normal" ? "is-normal" : "";
+    return '<div class="flow-item ' + cls + '">' +
+      '<div class="fi-time">' + it.time + '</div>' +
+      '<div class="fi-title">' + it.title + '</div>' +
+      '<div class="fi-desc">' + it.desc + '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById("flow-timeline").innerHTML = html ||
+    '<div class="text-sm muted" style="padding:20px;text-align:center;">暂无流水记录</div>';
+}
+</script>
+</body>
+</html>

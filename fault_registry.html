@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="page.fault.title">注册告警与等级维护</title>
+<link rel="stylesheet" href="css/main.css">
+<script>
+  (function(){ try{ var t=localStorage.getItem("xcmg-theme")||"light"; document.documentElement.setAttribute("data-theme",t);}catch(e){} })();
+  (function(){ try{ if(localStorage.getItem("xcmg-sidebar-collapsed")==="1") document.documentElement.setAttribute("data-sidebar","collapsed"); }catch(e){} })();
+</script>
+</head>
+<body>
+
+<div id="xcmg-header"></div>
+<div class="app-shell">
+  <div id="xcmg-sidebar"></div>
+  <main class="app-main">
+    <div class="page-title">
+      <div>
+        <h1 data-i18n="page.fault.title">注册告警与等级维护</h1>
+        <div class="breadcrumb">基础数据管理 / 注册告警与等级维护</div>
+      </div>
+      <div class="row gap-12">
+        <button class="btn btn-sm" onclick="openImportModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+          导入告警表
+        </button>
+        <button class="btn btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          导出
+        </button>
+        <button class="btn btn-sm btn-primary" onclick="openEditDrawer(null)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          新增告警
+        </button>
+      </div>
+    </div>
+
+    <!-- 顶部 KPI -->
+    <div class="reg-kpi-row">
+      <div class="rk-card">
+        <div class="rk-label">注册告警总数</div>
+        <div class="rk-value tone-info"><span id="rk-total">0</span><span class="rk-unit">条</span></div>
+      </div>
+      <div class="rk-card">
+        <div class="rk-label">三级 / 严重</div>
+        <div class="rk-value tone-critical"><span id="rk-l3">0</span><span class="rk-unit">条</span></div>
+      </div>
+      <div class="rk-card">
+        <div class="rk-label">二级 / 中等</div>
+        <div class="rk-value tone-warning"><span id="rk-l2">0</span><span class="rk-unit">条</span></div>
+      </div>
+      <div class="rk-card">
+        <div class="rk-label">一级 / 提示</div>
+        <div class="rk-value tone-info"><span id="rk-l1">0</span><span class="rk-unit">条</span></div>
+      </div>
+      <div class="rk-card">
+        <div class="rk-label">已停用</div>
+        <div class="rk-value tone-muted"><span id="rk-inact">0</span><span class="rk-unit">条</span></div>
+      </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="card" style="padding:0;">
+      <div class="reg-filter-bar">
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" id="f-keyword" placeholder="搜索故障代码 / 名称 / 描述…" />
+        </div>
+        <select id="f-bigcat">
+          <option value="">设备大类（全部）</option>
+          <option value="挖掘机">挖掘机</option>
+          <option value="平地机">平地机</option>
+          <option value="装载机">装载机</option>
+        </select>
+        <select id="f-model">
+          <option value="">设备型号（全部）</option>
+          <option value="XE5600">XE5600</option>
+          <option value="XE2000">XE2000</option>
+          <option value="GR5505">GR5505</option>
+          <option value="LW1200KN">LW1200KN</option>
+          <option value="LW1000KN">LW1000KN</option>
+        </select>
+        <select id="f-level">
+          <option value="">等级（全部）</option>
+          <option value="3">3 / 严重</option>
+          <option value="2">2 / 中等</option>
+          <option value="1">1 / 提示</option>
+        </select>
+        <select id="f-category">
+          <option value="">分类（全部）</option>
+          <option value="故障">故障</option>
+          <option value="警告">警告</option>
+        </select>
+        <select id="f-status">
+          <option value="">状态（全部）</option>
+          <option value="active">启用</option>
+          <option value="inactive">停用</option>
+        </select>
+        <button class="btn btn-sm" onclick="resetFilter()" style="margin-left:auto;" data-i18n="common.reset">重置</button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table class="alert-table-v2 reg-table">
+          <thead>
+            <tr>
+              <th style="width:36px;text-align:center;"><input type="checkbox" id="reg-check-all" onclick="toggleAllCheck(this)"/></th>
+              <th style="width:90px;">故障代码</th>
+              <th>故障名称</th>
+              <th style="width:80px;text-align:center;">等级</th>
+              <th style="width:80px;text-align:center;">分类</th>
+              <th>适用机型</th>
+              <th style="width:90px;text-align:center;">状态</th>
+              <th style="width:140px;">最后更新</th>
+              <th style="width:160px;text-align:center;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="reg-tbody"></tbody>
+        </table>
+      </div>
+      <div class="reg-table-foot">
+        <div>显示 <span id="reg-shown">0</span> 条 / 共 <span id="reg-total">0</span> 条</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;font-size:12px;color:var(--text-secondary);cursor:pointer;">‹</span>
+          <span class="pg" style="border:1px solid var(--xcmg-blue);background:var(--xcmg-blue);color:#fff;border-radius:4px;padding:2px 8px;font-size:12px;">1</span>
+          <span class="pg" style="border:1px solid var(--border-line);border-radius:4px;padding:2px 8px;font-size:12px;color:var(--text-secondary);cursor:pointer;">›</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- 编辑抽屉 -->
+<div class="evt-drawer-mask" id="reg-mask" onclick="closeEditDrawer()"></div>
+<div class="evt-drawer reg-drawer" id="reg-drawer">
+  <div class="ed-head">
+    <div class="ed-title">
+      <h3 id="rd-title">编辑告警</h3>
+      <div class="ed-meta" id="rd-meta"></div>
+    </div>
+    <button class="ed-close" onclick="closeEditDrawer()">×</button>
+  </div>
+  <div class="ed-body" id="rd-body">
+    <!-- 注入表单 -->
+  </div>
+  <div class="ed-foot">
+    <button class="btn btn-sm" onclick="closeEditDrawer()">取消</button>
+    <button class="btn btn-sm btn-primary" onclick="saveEdit()">保存</button>
+  </div>
+</div>
+
+<!-- 导入 modal -->
+<div class="evt-drawer-mask" id="imp-mask" onclick="closeImportModal()"></div>
+<div class="reg-import-modal" id="imp-modal">
+  <div class="rim-head">
+    <h3>导入告警表</h3>
+    <button class="ed-close" onclick="closeImportModal()">×</button>
+  </div>
+  <div class="rim-body">
+    <div class="rim-tip">
+      <strong>📥 批量导入说明</strong>
+      <p>支持 .xlsx / .csv 文件。请确保表格包含以下必备列：<code>故障代码 SPN</code>、<code>故障名称</code>、<code>故障等级 (1/2/3)</code>、<code>具体描述</code>、<code>潜在根因</code>、<code>排故指南</code>、<code>建议措施</code>。</p>
+      <p>导入时系统将根据 <strong>故障代码</strong> 进行匹配：已存在的代码会触发"覆盖确认"，新代码会自动登记并默认启用。</p>
+    </div>
+    <div class="rim-drop" id="rim-drop">
+      <div class="rim-drop-icon">📂</div>
+      <div class="rim-drop-text">点击或拖拽文件到此处上传</div>
+      <div class="rim-drop-sub">支持 .xlsx / .csv，单文件最大 10 MB</div>
+      <button class="btn btn-sm btn-primary" style="margin-top:14px;" onclick="mockUpload()">选择文件</button>
+    </div>
+    <div class="rim-template">
+      <span>📋 没有模板？</span>
+      <a onclick="alert('已下载示例模板（演示）')">下载导入模板.xlsx</a>
+    </div>
+  </div>
+  <div class="rim-foot">
+    <button class="btn btn-sm" onclick="closeImportModal()">取消</button>
+    <button class="btn btn-sm btn-primary" disabled style="opacity:.6;">开始导入</button>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+/* ============== 工具 ============== */
+function modelToCategory(m) {
+  if (!m) return "";
+  if (m.indexOf("XE") === 0) return "挖掘机";
+  if (m.indexOf("GR") === 0) return "平地机";
+  if (m.indexOf("LW") === 0) return "装载机";
+  return "";
+}
+function levelTag(lv) {
+  if (lv === 3) return '<span class="lv-tag lv-3">3 严重</span>';
+  if (lv === 2) return '<span class="lv-tag lv-2">2 中等</span>';
+  return '<span class="lv-tag lv-1">1 提示</span>';
+}
+function categoryTag(c) {
+  if (c === "故障") return '<span class="cat-tag cat-fault">故障</span>';
+  return '<span class="cat-tag cat-warn">警告</span>';
+}
+function statusTag(s) {
+  if (s === "active") return '<span class="st-tag st-active">● 启用</span>';
+  return '<span class="st-tag st-inactive">○ 停用</span>';
+}
+function modelsText(arr) {
+  if (!arr || arr.length === 0) return "—";
+  if (arr.length === 5) return '<span class="mt-all">全部机型</span>';
+  return arr.map(function(m){
+    var c = modelToCategory(m);
+    return '<span class="mt-chip" title="'+c+'">'+m+'</span>';
+  }).join("");
+}
+
+/* ============== 状态 ============== */
+var allCatalog = [];
+var currentList = [];
+
+document.addEventListener("DOMContentLoaded", function() {
+  XCMG_NAV.mount("");
+  // 深拷贝（防止演示编辑污染原始数据）
+  allCatalog = JSON.parse(JSON.stringify(XCMG_DATA.faultCatalog || []));
+  ["f-keyword","f-bigcat","f-model","f-level","f-category","f-status"].forEach(function(id){
+    var el = document.getElementById(id);
+    el.addEventListener(id === "f-keyword" ? "input" : "change", applyFilter);
+  });
+  applyFilter();
+});
+
+function resetFilter() {
+  ["f-keyword","f-bigcat","f-model","f-level","f-category","f-status"].forEach(function(id){
+    document.getElementById(id).value = "";
+  });
+  applyFilter();
+}
+
+function applyFilter() {
+  var kw  = (document.getElementById("f-keyword").value || "").trim().toLowerCase();
+  var bc  = document.getElementById("f-bigcat").value;
+  var md  = document.getElementById("f-model").value;
+  var lv  = document.getElementById("f-level").value;
+  var cat = document.getElementById("f-category").value;
+  var st  = document.getElementById("f-status").value;
+
+  currentList = allCatalog.filter(function(it){
+    if (kw) {
+      var hit = (it.code && it.code.toLowerCase().indexOf(kw) >= 0)
+             || (it.name && it.name.toLowerCase().indexOf(kw) >= 0)
+             || (it.description && it.description.toLowerCase().indexOf(kw) >= 0);
+      if (!hit) return false;
+    }
+    if (md && (it.applicable_models || []).indexOf(md) < 0) return false;
+    if (bc) {
+      var anyMatch = (it.applicable_models || []).some(function(m){ return modelToCategory(m) === bc; });
+      if (!anyMatch) return false;
+    }
+    if (lv && Number(lv) !== it.level) return false;
+    if (cat && it.category !== cat) return false;
+    if (st && it.status !== st) return false;
+    return true;
+  });
+
+  renderKPI();
+  renderTable();
+}
+
+function renderKPI() {
+  // KPI 总是基于全集，不受筛选影响
+  var total = allCatalog.length;
+  var l3 = allCatalog.filter(function(x){ return x.level === 3; }).length;
+  var l2 = allCatalog.filter(function(x){ return x.level === 2; }).length;
+  var l1 = allCatalog.filter(function(x){ return x.level === 1; }).length;
+  var inact = allCatalog.filter(function(x){ return x.status === "inactive"; }).length;
+  document.getElementById("rk-total").textContent = total;
+  document.getElementById("rk-l3").textContent = l3;
+  document.getElementById("rk-l2").textContent = l2;
+  document.getElementById("rk-l1").textContent = l1;
+  document.getElementById("rk-inact").textContent = inact;
+}
+
+function renderTable() {
+  var tbody = document.getElementById("reg-tbody");
+  if (currentList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted);">没有匹配的告警</td></tr>';
+    document.getElementById("reg-shown").textContent = 0;
+    document.getElementById("reg-total").textContent = allCatalog.length;
+    return;
+  }
+  var sorted = currentList.slice().sort(function(a,b){
+    if (b.level !== a.level) return b.level - a.level;
+    return (a.code || "").localeCompare(b.code || "");
+  });
+  tbody.innerHTML = sorted.map(function(it){
+    var rowCls = it.status === "inactive" ? "row-inactive" : (it.level === 3 ? "row-crit" : "");
+    return '<tr class="'+rowCls+'">' +
+      '<td style="text-align:center;"><input type="checkbox" class="reg-row-check" onclick="event.stopPropagation();"/></td>' +
+      '<td><span class="reg-code">'+it.code+'</span></td>' +
+      '<td>' +
+        '<div class="reg-name-cn">'+it.name+'</div>' +
+        (it.name_en ? '<div class="reg-name-en">'+it.name_en+'</div>' : '') +
+      '</td>' +
+      '<td style="text-align:center;">'+levelTag(it.level)+'</td>' +
+      '<td style="text-align:center;">'+categoryTag(it.category)+'</td>' +
+      '<td>'+modelsText(it.applicable_models)+'</td>' +
+      '<td style="text-align:center;">'+statusTag(it.status)+'</td>' +
+      '<td><span class="aev-time">'+(it.updated_at || "—")+'</span><div class="reg-updater">'+(it.updated_by || "")+'</div></td>' +
+      '<td style="text-align:center;">' +
+        '<a class="reg-act" onclick="openEditDrawer(\''+it.code+'\')">编辑</a>' +
+        '<span class="reg-act-sep">|</span>' +
+        '<a class="reg-act" onclick="toggleStatus(\''+it.code+'\')">'+(it.status === "active" ? "停用" : "启用")+'</a>' +
+      '</td>' +
+    '</tr>';
+  }).join("");
+  document.getElementById("reg-shown").textContent = sorted.length;
+  document.getElementById("reg-total").textContent = allCatalog.length;
+}
+
+function toggleAllCheck(el) {
+  document.querySelectorAll(".reg-row-check").forEach(function(c){ c.checked = el.checked; });
+}
+
+function toggleStatus(code) {
+  var it = allCatalog.find(function(x){ return x.code === code; });
+  if (!it) return;
+  if (!confirm((it.status === "active" ? "确定停用" : "确定启用") + "故障 " + code + " 「" + it.name + "」吗？\n\n停用后该告警不会触发新的事件。")) return;
+  it.status = it.status === "active" ? "inactive" : "active";
+  it.updated_at = nowStr();
+  it.updated_by = "Emma";
+  applyFilter();
+}
+
+function nowStr() {
+  var d = new Date();
+  function pad(n){ return n<10 ? "0"+n : ""+n; }
+  return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes());
+}
+
+/* ============== 编辑抽屉 ============== */
+var editingCode = null;
+
+function openEditDrawer(code) {
+  editingCode = code;
+  var it = code ? allCatalog.find(function(x){ return x.code === code; }) : {
+    code:"", name:"", name_en:"", level:1, category:"警告",
+    description:"", root_cause:"", trouble_guide:"", recommended_action:"",
+    applicable_models:["XE5600","XE2000","GR5505","LW1200KN","LW1000KN"],
+    status:"active", updated_at:"", updated_by:""
+  };
+  document.getElementById("rd-title").textContent = code ? "编辑告警 · " + it.code : "新增告警";
+  document.getElementById("rd-meta").textContent  = code ? "最后更新 " + (it.updated_at || "—") + " by " + (it.updated_by || "—") : "请填写所有必备字段";
+
+  var ALL = ["XE5600","XE2000","GR5505","LW1200KN","LW1000KN"];
+  var modelChecks = ALL.map(function(m){
+    var checked = (it.applicable_models || []).indexOf(m) >= 0 ? "checked" : "";
+    return '<label class="rf-check"><input type="checkbox" class="rf-model" value="'+m+'" '+checked+'/>'+m+'</label>';
+  }).join("");
+
+  var html = '';
+  html += '<div class="rf-grid">';
+  html += '<div class="rf-row"><label>故障代码 SPN</label><input type="text" id="rf-code" value="'+esc(it.code)+'" '+(code ? "readonly" : "")+' placeholder="如 301 / 0001" /></div>';
+  html += '<div class="rf-row"><label>故障名称</label><input type="text" id="rf-name" value="'+esc(it.name)+'" placeholder="如 发动机水温高报警" /></div>';
+  html += '<div class="rf-row"><label>英文名称</label><input type="text" id="rf-name-en" value="'+esc(it.name_en)+'" placeholder="Engine Coolant Temperature High" /></div>';
+  html += '<div class="rf-row"><label>故障等级</label><select id="rf-level">' +
+    '<option value="3" '+(it.level===3?"selected":"")+'>3 / 严重（critical）</option>' +
+    '<option value="2" '+(it.level===2?"selected":"")+'>2 / 中等（warning）</option>' +
+    '<option value="1" '+(it.level===1?"selected":"")+'>1 / 提示（info）</option>' +
+    '</select></div>';
+  html += '<div class="rf-row"><label>分类</label><select id="rf-cat">' +
+    '<option value="故障" '+(it.category==="故障"?"selected":"")+'>故障</option>' +
+    '<option value="警告" '+(it.category==="警告"?"selected":"")+'>警告</option>' +
+    '</select></div>';
+  html += '<div class="rf-row"><label>状态</label><select id="rf-status">' +
+    '<option value="active" '+(it.status==="active"?"selected":"")+'>启用</option>' +
+    '<option value="inactive" '+(it.status==="inactive"?"selected":"")+'>停用</option>' +
+    '</select></div>';
+  html += '<div class="rf-row span-2"><label>适用机型</label><div class="rf-checks">'+modelChecks+'</div></div>';
+  html += '<div class="rf-row span-2"><label>具体描述</label><textarea id="rf-desc" rows="2" placeholder="发生时的现象与潜在影响">'+esc(it.description)+'</textarea></div>';
+  html += '<div class="rf-row span-2"><label>潜在根因</label><textarea id="rf-cause" rows="3" placeholder="按分号分隔，列举可能原因">'+esc(it.root_cause)+'</textarea></div>';
+  html += '<div class="rf-row span-2"><label>排故指南</label><textarea id="rf-guide" rows="3" placeholder="1) ... 2) ... 3) ...">'+esc(it.trouble_guide)+'</textarea></div>';
+  html += '<div class="rf-row span-2"><label>建议措施</label><textarea id="rf-action" rows="3" placeholder="按等级处理建议">'+esc(it.recommended_action)+'</textarea></div>';
+  html += '</div>';
+
+  document.getElementById("rd-body").innerHTML = html;
+  document.getElementById("reg-drawer").classList.add("open");
+  document.getElementById("reg-mask").classList.add("show");
+}
+
+function closeEditDrawer() {
+  document.getElementById("reg-drawer").classList.remove("open");
+  document.getElementById("reg-mask").classList.remove("show");
+  editingCode = null;
+}
+
+function saveEdit() {
+  var code = document.getElementById("rf-code").value.trim();
+  var name = document.getElementById("rf-name").value.trim();
+  if (!code || !name) { alert("故障代码和名称不能为空"); return; }
+  var models = [];
+  document.querySelectorAll(".rf-model:checked").forEach(function(c){ models.push(c.value); });
+  if (models.length === 0) { alert("请至少选择 1 个适用机型"); return; }
+
+  var record = {
+    code: code,
+    name: name,
+    name_en: document.getElementById("rf-name-en").value.trim(),
+    level: Number(document.getElementById("rf-level").value),
+    category: document.getElementById("rf-cat").value,
+    status: document.getElementById("rf-status").value,
+    description: document.getElementById("rf-desc").value.trim(),
+    root_cause: document.getElementById("rf-cause").value.trim(),
+    trouble_guide: document.getElementById("rf-guide").value.trim(),
+    recommended_action: document.getElementById("rf-action").value.trim(),
+    applicable_models: models,
+    updated_at: nowStr(),
+    updated_by: "Emma"
+  };
+
+  if (editingCode) {
+    var idx = allCatalog.findIndex(function(x){ return x.code === editingCode; });
+    if (idx >= 0) allCatalog[idx] = record;
+  } else {
+    if (allCatalog.find(function(x){ return x.code === code; })) {
+      alert("故障代码 " + code + " 已存在，无法重复添加。"); return;
+    }
+    allCatalog.unshift(record);
+  }
+  closeEditDrawer();
+  applyFilter();
+  flashTip("已保存「" + code + " · " + name + "」");
+}
+
+function flashTip(msg) {
+  var t = document.createElement("div");
+  t.className = "reg-flash";
+  t.textContent = "✅ " + msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.classList.add("show"); }, 10);
+  setTimeout(function(){ t.classList.remove("show"); setTimeout(function(){ t.remove(); }, 300); }, 2200);
+}
+
+function esc(s) {
+  if (s === undefined || s === null) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+/* ============== 导入 modal ============== */
+function openImportModal() {
+  document.getElementById("imp-modal").classList.add("show");
+  document.getElementById("imp-mask").classList.add("show");
+}
+function closeImportModal() {
+  document.getElementById("imp-modal").classList.remove("show");
+  document.getElementById("imp-mask").classList.remove("show");
+}
+function mockUpload() {
+  alert("已选择文件：徐工挖掘机告警目录_v2.xlsx\n\n（演示原型不会真实上传，可在「编辑」抽屉手动维护）");
+}
+
+/* ESC 关闭 */
+document.addEventListener("keydown", function(e){
+  if (e.key === "Escape") { closeEditDrawer(); closeImportModal(); }
+});
+</script>
+</body>
+</html>

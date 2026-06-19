@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-06-19T07:00:00.000Z" agent="claw" version="24.0.0" type="device">
+  <diagram id="xcmg_func_arch" name="功能架构图">
+    <mxGraphModel dx="1554" dy="946" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1060" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        
+        <mxCell id="title" value="矿山设备健康与事件管理平台 · 功能架构图（v1.9.6）" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=20;fontStyle=1;fontColor=#0A4DA1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="10" width="1440" height="40" as="geometry" />
+        </mxCell>
+
+        
+        <mxCell id="lbl_l1" value="入口与公共框架层" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontStyle=1;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="80" y="60" width="180" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl_l2" value="核心业务监控层（监控视图）" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontStyle=1;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="80" y="240" width="240" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl_l3" value="数据与管理层" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontStyle=1;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="80" y="540" width="180" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl_l4" value="平台基础层（共享组件 / 数据 / 主题）" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontStyle=1;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="80" y="800" width="320" height="20" as="geometry" />
+        </mxCell>
+
+        
+        
+        
+        <mxCell id="layer_entry" value="顶栏 Header + 侧边栏 Sidebar（公共导航 · 主题切换 · 全局搜索）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;verticalAlign=top;align=center;spacingTop=10;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="85" width="1440" height="145" as="geometry" />
+        </mxCell>
+        <mxCell id="entry_search" value="全局搜索&lt;br&gt;设备/告警/事件" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="layer_entry">
+          <mxGeometry x="40" y="55" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entry_home" value="首页入口" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="layer_entry">
+          <mxGeometry x="270" y="55" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entry_theme" value="主题切换&lt;br&gt;浅色 / 深色" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="layer_entry">
+          <mxGeometry x="480" y="55" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entry_lang" value="语言切换&lt;br&gt;（v2.0 i18n 待做）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=12;dashed=1;" vertex="1" parent="layer_entry">
+          <mxGeometry x="690" y="55" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entry_user" value="用户中心&lt;br&gt;Emma · 头像" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="layer_entry">
+          <mxGeometry x="920" y="55" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entry_help" value="帮助中心" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="layer_entry">
+          <mxGeometry x="1130" y="55" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entry_collapse" value="侧边栏折叠/展开&lt;br&gt;localStorage 持久化" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="layer_entry">
+          <mxGeometry x="1320" y="55" width="80" height="60" as="geometry" />
+        </mxCell>
+
+        
+        
+        
+        
+        <mxCell id="biz_bi" value="设备运维BI（看板分析）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;verticalAlign=top;align=center;spacingTop=10;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="265" width="345" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="bi_perf" value="设备绩效看板&lt;br&gt;index.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="biz_bi">
+          <mxGeometry x="40" y="50" width="265" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="bi_trend" value="事件趋势看板&lt;br&gt;events_trend.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="biz_bi">
+          <mxGeometry x="40" y="125" width="265" height="60" as="geometry" />
+        </mxCell>
+
+        
+        <mxCell id="biz_fleet" value="车队与工单" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;verticalAlign=top;align=center;spacingTop=10;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="445" y="265" width="345" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="fleet_view" value="车队视图&lt;br&gt;fleet.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="biz_fleet">
+          <mxGeometry x="40" y="50" width="265" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="fleet_events" value="待办事件&lt;br&gt;events.html · 工单流转" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="biz_fleet">
+          <mxGeometry x="40" y="125" width="265" height="60" as="geometry" />
+        </mxCell>
+
+        
+        <mxCell id="biz_health" value="设备健康监控" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;verticalAlign=top;align=center;spacingTop=10;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="810" y="265" width="345" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="health_assets" value="设备列表（设备健康）&lt;br&gt;assets.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="biz_health">
+          <mxGeometry x="40" y="50" width="265" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="health_detail" value="设备详情（下钻）&lt;br&gt;asset_detail.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="biz_health">
+          <mxGeometry x="40" y="115" width="265" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="health_alerts" value="告警视图&lt;br&gt;alerts.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="biz_health">
+          <mxGeometry x="40" y="180" width="265" height="50" as="geometry" />
+        </mxCell>
+
+        
+        <mxCell id="biz_realtime" value="实时与地图监控" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;verticalAlign=top;align=center;spacingTop=10;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1175" y="265" width="345" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="rt_map" value="地图定位视图&lt;br&gt;map.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="biz_realtime">
+          <mxGeometry x="40" y="50" width="265" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="rt_select" value="实时监控信息选择&lt;br&gt;monitor_select.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="biz_realtime">
+          <mxGeometry x="40" y="115" width="265" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="rt_chart" value="实时波形监测台&lt;br&gt;monitor_chart.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="biz_realtime">
+          <mxGeometry x="40" y="180" width="265" height="50" as="geometry" />
+        </mxCell>
+
+        
+        
+        
+        <mxCell id="data_oper" value="运营数据" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;verticalAlign=top;align=center;spacingTop=10;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="565" width="700" height="205" as="geometry" />
+        </mxCell>
+        <mxCell id="data_oil" value="油品 / 点检结果&lt;br&gt;placeholder.html?m=油品" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="data_oper">
+          <mxGeometry x="40" y="55" width="195" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="data_report" value="报表分析&lt;br&gt;placeholder.html?m=报表分析" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="data_oper">
+          <mxGeometry x="252" y="55" width="195" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="data_import" value="数据导入与接口&lt;br&gt;placeholder.html?m=数据导入" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="data_oper">
+          <mxGeometry x="465" y="55" width="195" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data_master" value="基础数据管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;verticalAlign=top;align=center;spacingTop=10;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="820" y="565" width="725" height="205" as="geometry" />
+        </mxCell>
+        <mxCell id="data_fault" value="注册告警与等级维护&lt;br&gt;fault_registry.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=12;fontStyle=1;" vertex="1" parent="data_master">
+          <mxGeometry x="30" y="55" width="155" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="data_asset" value="设备主数据&lt;br&gt;placeholder.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="data_master">
+          <mxGeometry x="200" y="55" width="155" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="data_people" value="人员与组织&lt;br&gt;placeholder.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="data_master">
+          <mxGeometry x="370" y="55" width="155" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="data_area" value="矿区与工作面&lt;br&gt;placeholder.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="data_master">
+          <mxGeometry x="540" y="55" width="155" height="120" as="geometry" />
+        </mxCell>
+
+        
+        
+        
+        <mxCell id="layer_base" value="共享组件 · 数据 · 主题（所有页面公用）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;verticalAlign=top;align=center;spacingTop=10;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="825" width="1440" height="185" as="geometry" />
+        </mxCell>
+        <mxCell id="base_nav" value="公共导航 nav.js&lt;br&gt;Header / Sidebar / 折叠切换" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=12;" vertex="1" parent="layer_base">
+          <mxGeometry x="40" y="55" width="320" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="base_theme" value="主题系统 XCMG_THEME&lt;br&gt;main.css · 浅色/深色/调色板" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=12;" vertex="1" parent="layer_base">
+          <mxGeometry x="390" y="55" width="320" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="base_modal" value="告警弹窗 alh_modal.js&lt;br&gt;ALH 详情 / 处理流转" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=12;" vertex="1" parent="layer_base">
+          <mxGeometry x="740" y="55" width="320" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="base_data" value="数据与工具&lt;br&gt;XCMG_DATA · XCMG_UTIL · ECharts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=12;" vertex="1" parent="layer_base">
+          <mxGeometry x="1090" y="55" width="320" height="100" as="geometry" />
+        </mxCell>
+
+        
+        
+        
+        <mxCell id="e_l1_bi" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;strokeWidth=1.5;" edge="1" parent="1" source="layer_entry" target="biz_bi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_l1_fleet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;strokeWidth=1.5;" edge="1" parent="1" source="layer_entry" target="biz_fleet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_l1_health" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;strokeWidth=1.5;" edge="1" parent="1" source="layer_entry" target="biz_health">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_l1_rt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#6c8ebf;strokeWidth=1.5;" edge="1" parent="1" source="layer_entry" target="biz_realtime">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_l1_oper" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#9673a6;strokeWidth=1.5;dashed=1;" edge="1" parent="1" source="layer_entry" target="data_oper">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_l1_master" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#9673a6;strokeWidth=1.5;dashed=1;" edge="1" parent="1" source="layer_entry" target="data_master">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        
+        
+        
+        <mxCell id="e_bi_base" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#b85450;strokeWidth=1;dashed=1;endFill=1;" edge="1" parent="1" source="biz_bi" target="layer_base">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fleet_base" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#b85450;strokeWidth=1;dashed=1;endFill=1;" edge="1" parent="1" source="biz_fleet" target="layer_base">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_health_base" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#b85450;strokeWidth=1;dashed=1;endFill=1;" edge="1" parent="1" source="biz_health" target="layer_base">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_rt_base" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#b85450;strokeWidth=1;dashed=1;endFill=1;" edge="1" parent="1" source="biz_realtime" target="layer_base">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_oper_base" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#b85450;strokeWidth=1;dashed=1;endFill=1;" edge="1" parent="1" source="data_oper" target="layer_base">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_master_base" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#b85450;strokeWidth=1;dashed=1;endFill=1;" edge="1" parent="1" source="data_master" target="layer_base">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        
+        <mxCell id="legend_box" value="图例" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;strokeWidth=1;verticalAlign=top;align=center;spacingTop=6;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="1015" width="240" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_text" value="实线：直接调用/页面跳转 ｜ 虚线：弱依赖/共享" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="1125" width="240" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
